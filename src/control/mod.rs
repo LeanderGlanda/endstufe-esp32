@@ -12,8 +12,7 @@ pub fn handle_command(command: SystemCommand, pcm1865: &mut PCM1865, dsp: &ADAU1
             dsp.set_channel_volume(channel, level)
         }
         SystemCommand::MuteChannel { channel } => {
-            // amplifier.mute_channel(channel)
-            Ok(())
+            amplifier.mute_channel(channel)
         }
         SystemCommand::SetInputSource { channel, source_id } => {
             pcm1865.set_input_source(channel, source_id)

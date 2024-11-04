@@ -1,21 +1,21 @@
-
-use anyhow::{Error, Ok};
+use anyhow::{Error, Result};
 use esp_idf_svc::hal::delay::BLOCK;
 use esp_idf_svc::hal::i2c::I2cDriver;
+use std::sync::{Arc, Mutex};
 
 pub struct PCM1865<'a> {
-    i2c: I2cDriver<'a>,
+    i2c: Arc<Mutex<I2cDriver<'a>>>, // Use the lifetime parameter here
     address: u8,
 }
 
 impl<'a> PCM1865<'a> {
-    /// Creates a new instance of PCM1865 with an I2C driver and device address
-    pub fn new(i2c: I2cDriver<'a>, address: u8) -> Self {
+    /// Creates a new instance of PCM1865 with a thread-safe I2C driver and device address
+    pub fn new(i2c: Arc<Mutex<I2cDriver<'a>>>, address: u8) -> Self {
         PCM1865 { i2c, address }
     }
 
     /// Sets the input source for a specified channel
-    pub fn set_input_source(&mut self, channel: u8, source_id: u8) -> Result<(), anyhow::Error> {
+    pub fn set_input_source(&self, channel: u8, source_id: u8) -> Result<()> {
         let register = match channel {
             1 => 0x3B,
             2 => 0x3C,
@@ -23,28 +23,34 @@ impl<'a> PCM1865<'a> {
             4 => 0x3E,
             _ => return Err(Error::msg("Invalid channel selected")),
         };
-        self.i2c.write(self.address, &[register, source_id], BLOCK)?;
+        
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        i2c.write(self.address, &[register, source_id], BLOCK)?;
         Ok(())
     }
 
     /// Mutes or unmutes a specified channel
-    pub fn mute_channel(&mut self, channel: u8, mute: bool) -> Result<(), anyhow::Error> {
-        let mute_register = 0x10; // Hypothetical mute register
+    pub fn mute_channel(&self, channel: u8, mute: bool) -> Result<()> {
+        let mute_register = 0x10;
         let mute_value = if mute { 0x01 } else { 0x00 };
-        self.i2c.write(self.address, &[mute_register, mute_value], BLOCK)?;
+        
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        i2c.write(self.address, &[mute_register, mute_value], BLOCK)?;
         Ok(())
     }
 
-    fn set_bits(&mut self, register: u8, mask: u8, value: u8) -> Result<(), anyhow::Error> {
+    fn set_bits(&self, register: u8, mask: u8, value: u8) -> Result<()> {
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        
         // Step 1: Read the current value of the register
         let mut current_value = [0u8; 1];
-        self.i2c.write_read(self.address, &[register], &mut current_value, BLOCK)?;
+        i2c.write_read(self.address, &[register], &mut current_value, BLOCK)?;
         
         // Step 2: Modify the specific bits
         let new_value = (current_value[0] & !mask) | (value & mask);
         
         // Step 3: Write the modified value back
-        self.i2c.write(self.address, &[register, new_value], BLOCK)?;
+        i2c.write(self.address, &[register, new_value], BLOCK)?;
         Ok(())
     }
 
