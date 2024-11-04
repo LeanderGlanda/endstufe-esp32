@@ -1,10 +1,14 @@
-use drivers::pcm1865::{self, PCM1865};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::prelude::*;
 
 mod drivers;
 mod i2c_helper;
+mod api;
+mod control;
+
+use crate::api::commands::SystemCommand;
+use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
 
 /// Lets do some planning of this:
 /// The GPIOs are only accessible to RP2040 right now, which means either ESP32 sends commands to RP2040 or RP2040 configures them in a way fixed. But that's little bit bad because then amplifier muting doesn't work like it should.
