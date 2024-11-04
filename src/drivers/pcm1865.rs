@@ -31,7 +31,7 @@ impl<'a> PCM1865<'a> {
 
     /// Mutes or unmutes a specified channel
     pub fn mute_channel(&self, channel: u8, mute: bool) -> Result<()> {
-        let mute_register = 0x10;
+        let mute_register = 0x10 + channel;
         let mute_value = if mute { 0x01 } else { 0x00 };
         
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
