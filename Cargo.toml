@@ -29,4 +29,4 @@ anyhow = "1.0.93"
 
 [build-dependencies]
 embuild = "0.32.0"
-cc = "=1.1.35" # Necessary until a new version of `esp-idf-sys` is released
+cc = "=1.1.30" # Necessary until a new version of `esp-idf-sys` is released
