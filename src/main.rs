@@ -8,6 +8,7 @@ mod drivers;
 mod i2c_helper;
 mod api;
 mod control;
+mod web;
 
 use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
