@@ -4,6 +4,8 @@ use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::prelude::*;
 
+use tokio::task;
+
 mod drivers;
 mod i2c_helper;
 mod api;
@@ -25,16 +27,7 @@ use control::handle_command;
 /// This application has to configure all the ICs. 
 /// 
 
-fn main() -> anyhow::Result<()> {
-    // It is necessary to call this function once. Otherwise some patches to the runtime
-    // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
-    esp_idf_svc::sys::link_patches();
-
-    // Bind the log crate to the ESP Logging facilities
-    esp_idf_svc::log::EspLogger::initialize_default();
-
-    log::info!("Hello, world!");
-
+fn hardware_init() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
     let i2c = peripherals.i2c0;
     let sda = peripherals.pins.gpio5;
@@ -48,6 +41,34 @@ fn main() -> anyhow::Result<()> {
     call_every_command(shared_i2c.clone())?;
     setup_pcm1865(shared_i2c.clone())?;
 
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // It is necessary to call this function once. Otherwise some patches to the runtime
+    // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
+    esp_idf_svc::sys::link_patches();
+
+    // Bind the log crate to the ESP Logging facilities
+    esp_idf_svc::log::EspLogger::initialize_default();
+
+    log::info!("Hello, world!");
+
+    hardware_init()?;
+
+    // Shared state if needed (e.g., a Mutex or similar)
+    // let shared_state = Arc::new(());
+
+    // Spawn other tasks
+    // let hardware_task = task::spawn(hardware::run(shared_state.clone()));
+
+    // Start the web server
+    let web_task = task::spawn(web::handler::start_server());
+
+    // Await all tasks
+    // tokio::try_join!(hardware_task, web_task)?;
+    tokio::try_join!(web_task)?;
 
     Ok(())
 }
