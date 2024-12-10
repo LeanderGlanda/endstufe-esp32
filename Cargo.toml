@@ -1,13 +1,13 @@
 [package]
-name = "endstufe-esp32-test"
-version = "0.2.0"
+name = "endstufe-esp32"
+version = "0.1.0"
 authors = ["LeanderGlanda <leander.wollersberger@gmx.at>"]
 edition = "2021"
 resolver = "2"
 rust-version = "1.77"
 
 [[bin]]
-name = "endstufe-esp32-test"
+name = "endstufe-esp32"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
