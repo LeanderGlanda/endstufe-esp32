@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::prelude::*;
-
+use tokio::runtime::Runtime;
 use tokio::task;
 
 mod drivers;
@@ -44,8 +44,7 @@ fn hardware_init() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
@@ -55,20 +54,28 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("Hello, world!");
 
-    hardware_init()?;
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    rt.block_on(async {
+        log::info!("Running async tasks...");
+        hardware_init()?;
+        let web_task = task::spawn(web::handler::start_server());
+        tokio::try_join!(web_task)?;
+        Ok::<(), anyhow::Error>(())
+    })?;
+
+    //hardware_init()?;
 
     // Shared state if needed (e.g., a Mutex or similar)
     // let shared_state = Arc::new(());
 
     // Spawn other tasks
-    // let hardware_task = task::spawn(hardware::run(shared_state.clone()));
+    // task::spawn(hardware::run(shared_state.clone()));
 
     // Start the web server
-    let web_task = task::spawn(web::handler::start_server());
+    // let web_task = task::spawn(web::handler::start_server());
 
     // Await all tasks
     // tokio::try_join!(hardware_task, web_task)?;
-    tokio::try_join!(web_task)?;
 
     Ok(())
 }
