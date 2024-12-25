@@ -3,8 +3,6 @@ use std::sync::{Arc, Mutex};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::prelude::*;
-use tokio::runtime::Runtime;
-use tokio::task;
 
 mod drivers;
 mod i2c_helper;
@@ -54,16 +52,16 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("Hello, world!");
 
-    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    /*let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     rt.block_on(async {
         log::info!("Running async tasks...");
         hardware_init()?;
         let web_task = task::spawn(web::handler::start_server());
         tokio::try_join!(web_task)?;
         Ok::<(), anyhow::Error>(())
-    })?;
+    })?;*/
 
-    //hardware_init()?;
+    hardware_init()?;
 
     // Shared state if needed (e.g., a Mutex or similar)
     // let shared_state = Arc::new(());

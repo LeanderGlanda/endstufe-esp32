@@ -1,16 +1,17 @@
 use axum::{Router, routing::get, extract::Query, response::IntoResponse};
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
 
 #[derive(Deserialize, Serialize)]
 struct QueryParams {
     name: String,
 }
 
+#[allow(dead_code)]
 async fn greet(query: Query<QueryParams>) -> impl IntoResponse {
     format!("Hello, {}!", query.name)
 }
 
+#[allow(dead_code)]
 pub async fn start_server() {
     log::info!("Starting webserver...");
     let app = Router::new().route("/", get(greet));

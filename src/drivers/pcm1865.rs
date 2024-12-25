@@ -30,6 +30,7 @@ impl<'a> PCM1865<'a> {
     }
 
     /// Mutes or unmutes a specified channel
+    #[allow(dead_code)]
     pub fn mute_channel(&self, channel: u8, mute: bool) -> Result<()> {
         let mute_register = 0x10 + channel;
         let mute_value = if mute { 0x01 } else { 0x00 };
@@ -54,6 +55,7 @@ impl<'a> PCM1865<'a> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn enable_automatic_clipping_suppression(&mut self, state: bool) -> Result<(), anyhow::Error> {
         self.set_bits(0x05, 0x1, if state {0x1} else {0x00})
     }
@@ -91,6 +93,7 @@ impl<'a> PCM1865<'a> {
 
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 pub enum SckXtalSelection {
     SckOrXtal, // 00
     Sck,       // 01

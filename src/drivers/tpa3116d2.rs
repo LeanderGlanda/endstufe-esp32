@@ -5,11 +5,13 @@ impl TPA3116D2 {
         TPA3116D2
     }
 
+    #[allow(dead_code)]
     pub fn mute_all(&self) -> Result<(), anyhow::Error> {
         Ok(())
     }
 
-    pub fn mute_channel(&self, channel: u8) -> Result<(), anyhow::Error> {
+    #[allow(dead_code)]
+    pub fn mute_channel(&self, _channel: u8) -> Result<(), anyhow::Error> {
         Ok(())
     }
 }

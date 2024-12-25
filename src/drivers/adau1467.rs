@@ -5,12 +5,13 @@ impl ADAU1467 {
         ADAU1467
     }
 
-    pub fn set_channel_volume(&self, channel: u8, volume: u8) -> Result<(), anyhow::Error> {
+    pub fn set_channel_volume(&self, _channel: u8, _volume: u8) -> Result<(), anyhow::Error> {
         // DSP volume-setting logic
         Ok(())
     }
 
-    pub fn mute_channel(&self, channel: u8) -> Result<(), anyhow::Error> {
+    #[allow(dead_code)]
+    pub fn mute_channel(&self, _channel: u8) -> Result<(), anyhow::Error> {
         // DSP muting logic
         Ok(())
     }
