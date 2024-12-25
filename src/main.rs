@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use drivers::adau1962a;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::prelude::*;
@@ -36,8 +37,11 @@ fn hardware_init() -> anyhow::Result<()> {
 
     let shared_i2c = Arc::new(Mutex::new(i2c));
 
-    call_every_command(shared_i2c.clone())?;
     setup_pcm1865(shared_i2c.clone())?;
+
+    // call_every_command(shared_i2c.clone())?;
+
+    i2c_helper::pretty_register_dump(&shared_i2c);
 
     Ok(())
 }
@@ -79,7 +83,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
-    let mut pcm1865 = PCM1865::new(i2c, 0x4C);
+    log::info!("Setting up PCM1865");
+
+    let mut pcm1865 = PCM1865::new(i2c, 0x4a);
 
     pcm1865.set_sck_xtal_selection(pcm1865::SckXtalSelection::Xtal)?;
     pcm1865.select_mode(true)?;
@@ -89,13 +95,24 @@ fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+    log::info!("Setting up PCM1865");
+
+    let mut adau1962a = ADAU1962A::new(i2c, 0x04);
+
+    adau1962a.
+
+
+    Ok(())
+}
+
 fn call_every_command(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     let mut pcm1865 = PCM1865::new(i2c, 0x4C);
 
     // Initialize components
     // let mut pcm1865 = PCM1865::new(/* args here */);
     let dsp = ADAU1467::new(/* args here */);
-    let dac = ADAU1962A::new(/* args here */);
+    // let dac = ADAU1962A::new(/* args here */);
     let amplifier = TPA3116D2::new(/* args here */);
 
     // Example of issuing a command to the system

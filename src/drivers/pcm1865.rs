@@ -41,6 +41,7 @@ impl<'a> PCM1865<'a> {
     }
 
     fn set_bits(&self, register: u8, mask: u8, value: u8) -> Result<()> {
+        log::info!("Settings bits");
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
         
         // Step 1: Read the current value of the register
@@ -77,14 +78,14 @@ impl<'a> PCM1865<'a> {
         if divider > 128 || divider == 0 {
             return Err(Error::msg("Invalid divider. Must be a value between 1 and 128"))
         }
-        self.set_bits(0x38, 0b01111111, divider - 1)
+        self.set_bits(0x26, 0b01111111, divider - 1)
     }
 
     pub fn bit_clock_to_left_right_clock_divider_value(&mut self, divider: u16) -> Result<(), anyhow::Error> {
         if divider > 256 || divider == 0 {
             return Err(Error::msg("Invalid divider. Must be a value between 1 and 128"))
         }
-        self.set_bits(0x38, 0b01111111, (divider - 1).try_into().unwrap())
+        self.set_bits(0x27, 0b01111111, (divider - 1).try_into().unwrap())
     }
 
 
