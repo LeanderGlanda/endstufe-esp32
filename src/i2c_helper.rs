@@ -21,7 +21,7 @@ pub fn pretty_register_dump(i2c: &Arc<Mutex<I2cDriver>>) {
             end_reg: 0x78,
         },
         I2CDevice {
-            address: 0x38,  // ADAU1962A
+            address: 0x04,  // ADAU1962A
             start_reg: 0x00,
             end_reg: 0x1F,
         },

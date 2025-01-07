@@ -39,6 +39,8 @@ fn hardware_init() -> anyhow::Result<()> {
 
     setup_pcm1865(shared_i2c.clone())?;
 
+    setup_adau1962a(shared_i2c.clone())?;
+
     // call_every_command(shared_i2c.clone())?;
 
     i2c_helper::pretty_register_dump(&shared_i2c);
@@ -100,13 +102,21 @@ fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 
     let mut adau1962a = ADAU1962A::new(i2c, 0x04);
 
-    adau1962a.
-
+    adau1962a.master_power_up(true)?;
+    adau1962a.set_xtal_oscillator_enabled(true)?;
+    adau1962a.set_pll_input_source(adau1962a::MclkiXtaliOrDlrclkSelection::MclkiOrXtali)?;
+    adau1962a.set_master_clock_fs_ratio(adau1962a::MasterClockFsRatio::Ratio512)?;
+    adau1962a.set_dac_clock_select(adau1962a::DacClockSource::PLL)?;
+    adau1962a.set_serial_audio_interface(adau1962a::AudioInterface::Stero)?;
+    adau1962a.set_sample_rate_selection(adau1962a::SampleRate::FS192)?;
+    adau1962a.set_dlrclk_polarity(false)?;
+    adau1962a.set_serial_interface_master(true)?;
+    adau1962a.set_master_mute(false)?;
 
     Ok(())
 }
 
-fn call_every_command(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+/*fn call_every_command(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     let mut pcm1865 = PCM1865::new(i2c, 0x4C);
 
     // Initialize components
@@ -117,16 +127,16 @@ fn call_every_command(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 
     // Example of issuing a command to the system
     let command1 = SystemCommand::SetVolume { channel: 1, level: 75 };
-    handle_command(command1, &mut pcm1865, &dsp, &dac, &amplifier)?;
+    // handle_command(command1, &mut pcm1865, &dsp, &dac, &amplifier)?;
     
     let command2 = SystemCommand::MuteChannel { channel: 1 };
-    handle_command(command2, &mut pcm1865, &dsp, &dac, &amplifier)?;
+    // handle_command(command2, &mut pcm1865, &dsp, &dac, &amplifier)?;
     
     let command3 = SystemCommand::SetInputSource { channel: 1, source_id: 1 };
-    handle_command(command3, &mut pcm1865, &dsp, &dac, &amplifier)?;
+    // handle_command(command3, &mut pcm1865, &dsp, &dac, &amplifier)?;
     
     let command4 = SystemCommand::UnmuteChannel { channel: 1 };
-    handle_command(command4, &mut pcm1865, &dsp, &dac, &amplifier)?;
+    // handle_command(command4, &mut pcm1865, &dsp, &dac, &amplifier)?;
     
     Ok(())
-}
+}*/
