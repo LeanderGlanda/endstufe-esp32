@@ -60,6 +60,26 @@ fn main() -> anyhow::Result<()> {
 
     let mut server = create_server()?;
 
+    server.fn_handler::<anyhow::Error, _>("/receive_data", Method::Post, |mut req| {
+        
+        let len = req.content_len().unwrap_or(0) as usize;
+        let mut buf = vec![0; len];
+        req.read_exact(&mut buf)?;
+        println!("Data received from backend: {:?}", buf);
+    
+        // Respond to the backend
+        let mut response = req.into_ok_response()?;
+
+        write!(
+            response,
+            "Ok",
+        )?;
+
+        Ok(())
+    })?;
+    
+
+
     server.fn_handler("/", Method::Get, |req| {
         req.into_ok_response()?
             .write_all(INDEX_HTML.as_bytes())
