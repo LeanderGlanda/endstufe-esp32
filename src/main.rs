@@ -1,9 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use drivers::adau1962a;
+use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
-use esp_idf_svc::hal::prelude::*;
+use esp_idf_svc::hal::{peripheral, prelude::*};
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
 
 mod drivers;
 mod i2c_helper;
@@ -26,16 +28,7 @@ use control::handle_command;
 /// This application has to configure all the ICs. 
 /// 
 
-fn hardware_init() -> anyhow::Result<()> {
-    let peripherals = Peripherals::take()?;
-    let i2c = peripherals.i2c0;
-    let sda = peripherals.pins.gpio5;
-    let scl = peripherals.pins.gpio6;
-
-    let config = I2cConfig::new().baudrate(100.kHz().into());
-    let i2c = I2cDriver::new(i2c, sda, scl, &config)?;
-
-    let shared_i2c = Arc::new(Mutex::new(i2c));
+fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {  
 
     setup_pcm1865(shared_i2c.clone())?;
 
@@ -67,7 +60,21 @@ fn main() -> anyhow::Result<()> {
         Ok::<(), anyhow::Error>(())
     })?;*/
 
-    hardware_init()?;
+    let peripherals = Peripherals::take()?;
+    let sys_loop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+    let i2c = peripherals.i2c0;
+    let sda = peripherals.pins.gpio5;
+    let scl = peripherals.pins.gpio6;
+
+    let config = I2cConfig::new().baudrate(100.kHz().into());
+    let i2c = I2cDriver::new(i2c, sda, scl, &config)?;
+
+    let shared_i2c = Arc::new(Mutex::new(i2c));
+
+    hardware_init(&shared_i2c)?;
+
+    web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
 
     // Shared state if needed (e.g., a Mutex or similar)
     // let shared_state = Arc::new(());
