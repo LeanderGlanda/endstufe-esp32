@@ -1,6 +1,8 @@
+#![allow(unused)]
+
 use std::sync::{Arc, Mutex};
 
-use drivers::adau1962a;
+use drivers::{adau1467, adau1962a};
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
@@ -12,6 +14,7 @@ mod i2c_helper;
 mod api;
 mod control;
 mod web;
+mod sigmastudio;
 
 use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
@@ -33,6 +36,8 @@ fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {
     setup_pcm1865(shared_i2c.clone())?;
 
     setup_adau1962a(shared_i2c.clone())?;
+
+    setup_adau1467(shared_i2c.clone())?;
 
     // call_every_command(shared_i2c.clone())?;
 
@@ -105,7 +110,7 @@ fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 }
 
 fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
-    log::info!("Setting up PCM1865");
+    log::info!("Setting up ADAU1962a");
 
     let mut adau1962a = ADAU1962A::new(i2c, 0x04);
 
@@ -119,6 +124,17 @@ fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     adau1962a.set_dlrclk_polarity(false)?;
     adau1962a.set_serial_interface_master(true)?;
     adau1962a.set_master_mute(false)?;
+
+    Ok(())
+}
+
+fn setup_adau1467(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+    log::info!("Setting up ADAU1467");
+
+    let mut adau1467 = ADAU1467::new(i2c, 0x38);
+
+    adau1467.load_dsp_program()?;
+    // adau1467.master_power_up(true)?;
 
     Ok(())
 }
