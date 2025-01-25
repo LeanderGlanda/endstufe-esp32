@@ -114,6 +114,7 @@ fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 
     let mut adau1962a = ADAU1962A::new(i2c, 0x04);
 
+    adau1962a.set_reset(true)?;
     adau1962a.master_power_up(true)?;
     adau1962a.set_xtal_oscillator_enabled(true)?;
     adau1962a.set_pll_input_source(adau1962a::MclkiXtaliOrDlrclkSelection::MclkiOrXtali)?;
