@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Duration};
 
 use esp_idf_svc::hal::i2c::I2cDriver;
 use esp_idf_svc::hal::delay::BLOCK;
@@ -31,6 +31,15 @@ impl<'a> ADAU1467<'a> {
 
         // Step 3: Write the modified value back
         i2c.write(self.address, &data_to_write, BLOCK)?;
+        Ok(())
+    }
+
+    /// Set the RESET pin of the ADAU1467
+    /// reset = true means the device is turned on
+    pub fn set_reset(&mut self, reset: bool) -> Result<(), anyhow::Error> {
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        i2c.write(0x42, &[0x7, reset as u8], BLOCK)?;
+        std::thread::sleep(Duration::from_millis(15));
         Ok(())
     }
 

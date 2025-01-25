@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use drivers::{adau1467, adau1962a};
+use drivers::{adau1467, adau1962a, tpa3116d2};
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::prelude::Peripherals;
@@ -39,9 +39,11 @@ fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {
 
     setup_adau1467(shared_i2c.clone())?;
 
+    setup_tpa3116d2(shared_i2c.clone())?;
+
     // call_every_command(shared_i2c.clone())?;
 
-    i2c_helper::pretty_register_dump(&shared_i2c);
+    // i2c_helper::pretty_register_dump(&shared_i2c);
 
     Ok(())
 }
@@ -134,11 +136,22 @@ fn setup_adau1467(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 
     let mut adau1467 = ADAU1467::new(i2c, 0x38);
 
+    adau1467.set_reset(true)?;
     adau1467.load_dsp_program()?;
-    // adau1467.master_power_up(true)?;
 
     Ok(())
 }
+
+fn setup_tpa3116d2(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+    log::info!("Setting up TPA3116D2");
+
+    let mut tpa3116d2 = TPA3116D2::new(i2c);
+
+    tpa3116d2.enable_speaker_outputs(true)?;
+
+    Ok(())
+}
+
 
 /*fn call_every_command(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     let mut pcm1865 = PCM1865::new(i2c, 0x4C);
