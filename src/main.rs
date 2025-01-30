@@ -94,9 +94,9 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 4; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 2; // Reduce amplitude to prevent distortion
 
-    let config = StdConfig::pcm(SAMPLE_RATE, DataBitWidth::Bits16);
+    let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
     let mut i2s_driver = I2sDriver::new_std_tx(
         peripherals.i2s0,
@@ -117,10 +117,20 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    fn generate_square_wave(samples: &mut [i16]) {
+        let period = SAMPLE_RATE / (2 * SINE_FREQ as u32);
+        for i in 0..samples.len() / 2 {
+            let value = if (i / period as usize) % 2 == 0 { AMPLITUDE } else { -AMPLITUDE };
+            samples[2 * i] = value;
+            samples[2 * i + 1] = value;
+        }
+    }
+
 
     let mut samples = [0i16; 1024]; // Buffer for audio data (512 stereo samples)
     let mut byte_buffer = [0u8; 2048]; // 2x the number of samples (16-bit -> 2 bytes per sample)
-    generate_sine_wave(&mut samples);
+    generate_square_wave(&mut samples);
+    //generate_sine_wave(&mut samples);
 
     hardware_init(&shared_i2c)?;
 
@@ -137,12 +147,12 @@ fn main() -> anyhow::Result<()> {
         }
 
         // Write to I2S with a timeout of 1000 ticks
-        match i2s_driver.write(&byte_buffer, TickType_t::Hz(50).into()) {
+        match i2s_driver.write(&byte_buffer, TickType_t::Hz(1000).into()) {
             Ok(_) => (),
             Err(e) => println!("I2S write error: {:?}", e),
         }
 
-        thread::sleep(Duration::from_millis(20)); // Prevent CPU overload
+        thread::sleep(Duration::from_millis(5)); // Prevent CPU overload
     }
 
     web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
