@@ -1,7 +1,7 @@
 /*
  * File:           C:\Users\Leander\Documents\Hardware\Elektronikprojekte\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1.h
  *
- * Created:        Thursday, January 30, 2025 4:13:51 PM
+ * Created:        Thursday, January 30, 2025 4:19:25 PM
  * Description:    TestDesigndspproj:IC 1 program data.
  *
  * This software is distributed in the hope that it will be useful,
@@ -546,7 +546,7 @@ ADI_REG_TYPE R23_ASRC_INPUT2_IC_1_Default[REG_ASRC_INPUT2_IC_1_BYTE] = {
 
 /* Register Default - IC 1.ASRC_OUT_RATE0 */
 ADI_REG_TYPE R24_ASRC_OUT_RATE0_IC_1_Default[REG_ASRC_OUT_RATE0_IC_1_BYTE] = {
-0x00, 0x06
+0x00, 0x05
 };
 
 /* Register Default - IC 1.ASRC_OUT_RATE1 */
