@@ -1,12 +1,10 @@
 use embedded_svc::http::{Method};
-use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, nvs::EspDefaultNvsPartition, sys::EspError, wifi::{BlockingWifi, EspWifi}};
 use esp_idf_svc::hal::{modem::Modem, prelude::Peripherals};
 use log::*;
 use serde::Deserialize;
 use std::{sync::{Arc, Mutex}, collections::VecDeque};
-use esp_idf_hal::i2s::{I2S, I2SConfig, I2SOutput, I2SDataWidth, I2SMode, I2SClockSource};
-use esp_idf_hal::prelude::*;
-use esp_idf_sys::EspError;
+use esp_idf_svc::hal::i2s;
 
 const SSID: &str = "Leander";
 const PASSWORD: &str = "hidden";
@@ -28,9 +26,9 @@ pub fn setup_webserver(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefau
         sys_loop,
     )?;
 
-    connect_wifi(&mut wifi)?;
+   //  connect_wifi(&mut wifi)?;
 
-    let mut server = create_server()?;
+    /*let mut server = create_server()?;
 
     // Shared buffer for incoming audio data
     let buffer = Arc::new(Mutex::new(VecDeque::new()));
@@ -67,18 +65,23 @@ pub fn setup_webserver(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefau
 
     // Keep wifi and the server running beyond when main() returns (forever)
     core::mem::forget(wifi);
-    core::mem::forget(server);
+    core::mem::forget(server);*/
 
     // Now configure I2S for output
-    let i2s = I2S::new();
-    configure_i2s(&i2s)?;
+    //let i2s = i2s::I2sDriver::new_std_tx(i2s::I2S0, i2s::config::StdConfig {
+    //    i2s::config::
+    //}, bclk, dout, mclk, ws)
+    //configure_i2s(&i2s)?;
+
+    // i2s::I2sDriver::new_std_tx(i2s, config, bclk, dout, mclk, ws);
 
     // Main loop to continuously send audio data via I2S
     loop {
-        send_audio_to_i2s(&i2s, Arc::clone(&buffer));
+        // send_audio_to_i2s(&i2s, Arc::clone(&buffer));
     }
 }
 
+/*
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<(), EspError> {
     let wifi_configuration = esp_idf_sys::wifi::Configuration::Client(esp_idf_sys::wifi::ClientConfiguration {
         ssid: SSID.try_into().unwrap(),
@@ -91,7 +94,7 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<(), EspErro
     wifi.connect()?;
     wifi.wait_netif_up()?;
     Ok(())
-}
+}*/
 
 fn create_server() -> Result<EspHttpServer<'static>, EspError> {
     let server_configuration = esp_idf_svc::http::server::Configuration {
@@ -99,10 +102,10 @@ fn create_server() -> Result<EspHttpServer<'static>, EspError> {
         ..Default::default()
     };
 
-    Ok(EspHttpServer::new(&server_configuration)?)
+    Ok(EspHttpServer::new(&server_configuration).unwrap())
 }
 
-fn configure_i2s(i2s: &I2S) -> Result<(), EspError> {
+/*fn configure_i2s(i2s: &I2S) -> Result<(), EspError> {
     let config = I2SConfig {
         mode: I2SMode::Master,
         sample_rate: 48_000,
@@ -121,4 +124,4 @@ fn send_audio_to_i2s(i2s: &I2S, buffer: Arc<Mutex<VecDeque<i16>>>) {
             error!("Error sending audio data to I2S: {:?}", e);
         }
     }
-}
+}*/

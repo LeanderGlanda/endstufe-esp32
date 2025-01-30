@@ -1,13 +1,20 @@
 #![allow(unused)]
 
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 use drivers::{adau1467, adau1962a, tpa3116d2};
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
+use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
+use esp_idf_svc::hal::i2s::I2sDriver;
+use esp_idf_svc::hal::i2s::config::ClockSource;
+use esp_idf_svc::hal::i2s::config::Config;
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::{peripheral, prelude::*};
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::sys::TickType_t;
 
 mod drivers;
 mod i2c_helper;
@@ -79,7 +86,64 @@ fn main() -> anyhow::Result<()> {
 
     let shared_i2c = Arc::new(Mutex::new(i2c));
 
+
+    let bclk = peripherals.pins.gpio0;
+    let ws = peripherals.pins.gpio1;
+    let dout = peripherals.pins.gpio10;
+    let mclk = Some(peripherals.pins.gpio11);
+
+    const SAMPLE_RATE: u32 = 48_000;
+    const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
+    const AMPLITUDE: i16 = i16::MAX / 4; // Reduce amplitude to prevent distortion
+
+    let config = StdConfig::pcm(SAMPLE_RATE, DataBitWidth::Bits16);
+
+    let mut i2s_driver = I2sDriver::new_std_tx(
+        peripherals.i2s0,
+        &config,
+        bclk,
+        dout,
+        mclk,
+        ws,
+    )?;
+
+
+    fn generate_sine_wave(samples: &mut [i16]) {
+        let sample_count = samples.len() / 2; // Stereo: Left + Right
+        for i in 0..sample_count {
+            let sample_value = (AMPLITUDE as f32 * (2.0 * std::f32::consts::PI * SINE_FREQ * i as f32 / SAMPLE_RATE as f32).sin()) as i16;
+            samples[2 * i] = sample_value;     // Left channel
+            samples[2 * i + 1] = sample_value; // Right channel
+        }
+    }
+
+
+    let mut samples = [0i16; 1024]; // Buffer for audio data (512 stereo samples)
+    let mut byte_buffer = [0u8; 2048]; // 2x the number of samples (16-bit -> 2 bytes per sample)
+    generate_sine_wave(&mut samples);
+
     hardware_init(&shared_i2c)?;
+
+    log::info!("Enabling I2s");
+
+    i2s_driver.tx_enable();
+
+    loop {
+        // Convert i16 samples to u8 byte array (little-endian)
+        for (i, &sample) in samples.iter().enumerate() {
+            let bytes = sample.to_le_bytes();
+            byte_buffer[2 * i] = bytes[0];
+            byte_buffer[2 * i + 1] = bytes[1];
+        }
+
+        // Write to I2S with a timeout of 1000 ticks
+        match i2s_driver.write(&byte_buffer, TickType_t::Hz(50).into()) {
+            Ok(_) => (),
+            Err(e) => println!("I2S write error: {:?}", e),
+        }
+
+        thread::sleep(Duration::from_millis(20)); // Prevent CPU overload
+    }
 
     web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
 

@@ -1,7 +1,7 @@
 /*
- * File:           C:\Users\Leander\Documents\Hardware\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1_REG.h
+ * File:           C:\Users\Leander\Documents\Hardware\Elektronikprojekte\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1_REG.h
  *
- * Created:        Friday, January 24, 2025 6:05:02 PM
+ * Created:        Thursday, January 30, 2025 3:22:22 PM
  * Description:    TestDesigndspproj:IC 1 control register definitions.
  *
  * This software is distributed in the hope that it will be useful,
@@ -323,12 +323,12 @@
 /* SERIAL_BYTE_1_0  - Registers (IC 1) */
 #define REG_SERIAL_BYTE_1_0_IC_1_ADDR             0xF204
 #define REG_SERIAL_BYTE_1_0_IC_1_BYTE             2
-#define REG_SERIAL_BYTE_1_0_IC_1_VALUE            0x9000
+#define REG_SERIAL_BYTE_1_0_IC_1_VALUE            0x20
 
 /* SERIAL_BYTE_1_1  - Registers (IC 1) */
 #define REG_SERIAL_BYTE_1_1_IC_1_ADDR             0xF205
 #define REG_SERIAL_BYTE_1_1_IC_1_BYTE             2
-#define REG_SERIAL_BYTE_1_1_IC_1_VALUE            0x2
+#define REG_SERIAL_BYTE_1_1_IC_1_VALUE            0x0
 
 /* SERIAL_BYTE_2_0  - Registers (IC 1) */
 #define REG_SERIAL_BYTE_2_0_IC_1_ADDR             0xF208
@@ -3552,12 +3552,12 @@
 /* SERIAL_BYTE_1_0 (IC 1) */
 #define R60_SERIAL_BYTE_1_0_TDM_MODE_IC_1         0x0    /* 000b	[2:0] */
 #define R60_SERIAL_BYTE_1_0_DATA_FMT_IC_1         0x0    /* 00b	[4:3] */
-#define R60_SERIAL_BYTE_1_0_WORD_LEN_IC_1         0x0    /* 00b	[6:5] */
+#define R60_SERIAL_BYTE_1_0_WORD_LEN_IC_1         0x1    /* 01b	[6:5] */
 #define R60_SERIAL_BYTE_1_0_BCLK_POL_IC_1         0x0    /* 0b	[7] */
 #define R60_SERIAL_BYTE_1_0_LRCLK_POL_IC_1        0x0    /* 0b	[8] */
 #define R60_SERIAL_BYTE_1_0_LRCLK_MODE_IC_1       0x0    /* 0b	[9] */
-#define R60_SERIAL_BYTE_1_0_BCLK_SRC_IC_1         0x4    /* 100b	[12:10] */
-#define R60_SERIAL_BYTE_1_0_LRCLK_SRC_IC_1        0x4    /* 100b	[15:13] */
+#define R60_SERIAL_BYTE_1_0_BCLK_SRC_IC_1         0x0    /* 000b	[12:10] */
+#define R60_SERIAL_BYTE_1_0_LRCLK_SRC_IC_1        0x0    /* 000b	[15:13] */
 #define R60_SERIAL_BYTE_1_0_TDM_MODE_IC_1_MASK    0x7
 #define R60_SERIAL_BYTE_1_0_TDM_MODE_IC_1_SHIFT   0
 #define R60_SERIAL_BYTE_1_0_DATA_FMT_IC_1_MASK    0x18
@@ -3576,7 +3576,7 @@
 #define R60_SERIAL_BYTE_1_0_LRCLK_SRC_IC_1_SHIFT  13
 
 /* SERIAL_BYTE_1_1 (IC 1) */
-#define R61_SERIAL_BYTE_1_1_FS_IC_1               0x2    /* 010b	[2:0] */
+#define R61_SERIAL_BYTE_1_1_FS_IC_1               0x0    /* 000b	[2:0] */
 #define R61_SERIAL_BYTE_1_1_CLK_DOMAIN_IC_1       0x0    /* 00b	[4:3] */
 #define R61_SERIAL_BYTE_1_1_TRISTATE_IC_1         0x0    /* 0b	[5] */
 #define R61_SERIAL_BYTE_1_1_FS_IC_1_MASK          0x7
