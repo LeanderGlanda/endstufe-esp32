@@ -34,5 +34,8 @@ fn build_sigmastudio_code() {
 fn main() {
     embuild::espidf::sysenv::output();
 
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/sigmastudio/ADAU1467.c");
+    println!("cargo:rerun-if-changed=src/sigmastudio/systemfiles_IC_1.h");
     build_sigmastudio_code();
 }
