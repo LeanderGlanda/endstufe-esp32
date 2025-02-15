@@ -27,6 +27,8 @@ use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
 use control::handle_command;
 
+const AUDIO_DATA: &[u8] = include_bytes!("../HellsBells.raw");
+
 /// Lets do some planning of this:
 /// The GPIOs are only accessible to RP2040 right now, which means either ESP32 sends commands to RP2040 or RP2040 configures them in a way fixed. But that's little bit bad because then amplifier muting doesn't work like it should.
 /// This means there needs to be an interface between RP2040 and ESP32, which can be nothing for now but needs to be added later.
@@ -129,8 +131,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut samples = [0i16; 1024]; // Buffer for audio data (512 stereo samples)
     let mut byte_buffer = [0u8; 2048]; // 2x the number of samples (16-bit -> 2 bytes per sample)
-    generate_square_wave(&mut samples);
-    //generate_sine_wave(&mut samples);
+    //generate_square_wave(&mut samples);
+    generate_sine_wave(&mut samples);
 
     hardware_init(&shared_i2c)?;
 
@@ -139,23 +141,17 @@ fn main() -> anyhow::Result<()> {
     i2s_driver.tx_enable();
 
     loop {
-        // Convert i16 samples to u8 byte array (little-endian)
-        for (i, &sample) in samples.iter().enumerate() {
-            let bytes = sample.to_le_bytes();
-            byte_buffer[2 * i] = bytes[0];
-            byte_buffer[2 * i + 1] = bytes[1];
-        }
-
         // Write to I2S with a timeout of 1000 ticks
-        match i2s_driver.write(&byte_buffer, TickType_t::Hz(1000).into()) {
+        match i2s_driver.write(AUDIO_DATA, TickType_t::Hz(1000).into()) {
             Ok(_) => (),
             Err(e) => println!("I2S write error: {:?}", e),
         }
 
-        thread::sleep(Duration::from_millis(5)); // Prevent CPU overload
+        thread::sleep(Duration::from_micros(100)); // Prevent CPU overload
+        break;
     }
 
-    web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
+    // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
 
     // Shared state if needed (e.g., a Mutex or similar)
     // let shared_state = Arc::new(());
