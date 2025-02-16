@@ -19,7 +19,7 @@ use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::{peripheral, prelude::*};
 use esp_idf_svc::http::Method;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
-use esp_idf_svc::sys::TickType_t;
+use esp_idf_svc::sys::{TickType_t, MALLOC_CAP_INTERNAL};
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
 
@@ -179,7 +179,7 @@ fn main() -> anyhow::Result<()> {
                     phase -= 2.0 * std::f32::consts::PI;
                 }
     
-                thread::yield_now();
+                thread::sleep(Duration::from_micros(100));
             }
         });
     }
@@ -187,19 +187,20 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("Enabling I2s");
 
-    i2s_driver.tx_enable();
+    // i2s_driver.tx_enable();
 
 
     // --- Consumer Thread (I2S Playback) ---
     {
         thread::spawn(move || {
-            const CHUNK_SAMPLES: usize = 512;
+            const CHUNK_SAMPLES: usize = 32;
 
             loop {
+
                 let mut samples = [0i16; CHUNK_SAMPLES];
 
                 for i in 0..CHUNK_SAMPLES {
-                    samples[i] = rx.recv().unwrap_or(0); // Blocks until data is available
+                    samples[i] = rx.recv().expect("No data available");
                 }
 
                 let mut byte_buffer = [0u8; CHUNK_SAMPLES * 2];
@@ -214,7 +215,7 @@ fn main() -> anyhow::Result<()> {
                     log::error!("I2S write error: {:?}", e);
                 }
 
-                //thread::sleep(Duration::from_micros(100));
+                thread::sleep(Duration::from_micros(1000));
             }
         });
     }
