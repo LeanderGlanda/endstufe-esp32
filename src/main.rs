@@ -1,20 +1,26 @@
 #![allow(unused)]
 
+use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use drivers::{adau1467, adau1962a, tpa3116d2};
+use embedded_svc::http::Headers;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
 use esp_idf_svc::hal::i2s::I2sDriver;
 use esp_idf_svc::hal::i2s::config::ClockSource;
 use esp_idf_svc::hal::i2s::config::Config;
+use esp_idf_svc::hal::modem::Modem;
 use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::hal::{peripheral, prelude::*};
+use esp_idf_svc::http::Method;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::sys::TickType_t;
+use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
+use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
 
 mod drivers;
 mod i2c_helper;
@@ -53,6 +59,30 @@ fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {
     // call_every_command(shared_i2c.clone())?;
 
     // i2c_helper::pretty_register_dump(&shared_i2c);
+
+    Ok(())
+}
+
+fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> anyhow::Result<()> {
+    // Create and configure WiFi (using blocking APIs)
+    let mut wifi = BlockingWifi::wrap(
+        EspWifi::new(modem, sys_loop.clone(), Some(nvs))?,
+        sys_loop.clone(),
+    )?;
+    wifi.set_configuration(&embedded_svc::wifi::Configuration::Client(
+        embedded_svc::wifi::ClientConfiguration {
+            ssid: "Wollersberger".try_into().unwrap(),
+            password: "hidden".try_into().unwrap(),
+            // You might add other fields as needed.
+            ..Default::default()
+        },
+    ))?;
+    wifi.start()?;
+    wifi.connect()?;
+    wifi.wait_netif_up()?;
+    log::info!("Connected to WiFi");
+
+    core::mem::forget(wifi);
 
     Ok(())
 }
@@ -96,7 +126,7 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 32; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 1024; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -136,9 +166,90 @@ fn main() -> anyhow::Result<()> {
 
     hardware_init(&shared_i2c)?;
 
+    setup_wifi(peripherals.modem, sys_loop, nvs);
+
+
+
+    let (audio_tx, audio_rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(100);
+
+
+
+
+
+
+    // ─── SETUP HTTP SERVER ───────────────────────────────────────────
+    let http_server_config = HttpConfig {
+        stack_size: 10 * 1024, // Increase if your handler needs more stack.
+        ..Default::default()
+    };
+    let mut server = EspHttpServer::new(&http_server_config)?;
+
+    {
+        // Register an HTTP POST handler at "/upload".
+        // When a client sends a chunk of audio, we immediately read it and forward it over the channel.
+        let audio_tx_clone = audio_tx.clone();
+        server.fn_handler::<anyhow::Error, _>("/upload", Method::Post, move |mut req| {
+            let mut body = Vec::new();
+            let mut buf = [0u8; 1024]; // Temporary buffer (adjust size as needed)
+            loop {
+                let n = req.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                body.extend_from_slice(&buf[..n]);
+            }
+            log::info!("Received audio chunk of {} bytes", body.len());
+        
+            if let Err(e) = audio_tx_clone.send(body) {
+                log::error!("Failed to forward audio chunk: {:?}", e);
+            }
+            req.into_ok_response()?;
+            Ok(())
+        })?;
+    }
+    log::info!("HTTP server running");
+
+
+
     log::info!("Enabling I2s");
 
     i2s_driver.tx_enable();
+
+
+    // ─── I2S PLAYBACK THREAD ─────────────────────────────────────────
+    // This thread waits for audio chunks from the HTTP endpoint and writes them to I2S.
+    thread::spawn(move || {
+        loop {
+            // Block until a chunk is available.
+            match audio_rx.recv() {
+                Ok(chunk) => {
+                    log::info!("Playing back data");
+                    // Write the chunk to I2S.
+                    // The timeout value (in ticks) can be adjusted as needed.
+                    let timeout = TickType_t::Hz(1000);
+                    if let Err(e) = i2s_driver.write(&chunk, timeout.into()) {
+                        log::error!("I2S write error: {:?}", e);
+                    }
+                }
+                Err(e) => {
+                    log::error!("Audio channel error: {:?}", e);
+                    break;
+                }
+            }
+        }
+    });
+
+
+
+
+
+
+
+    loop {
+        thread::sleep(Duration::from_micros(100000)); // Prevent CPU overload
+    }
+
+
 
     thread::sleep(Duration::from_millis(100));
 
@@ -157,7 +268,10 @@ fn main() -> anyhow::Result<()> {
         }
 
         thread::sleep(Duration::from_micros(1000)); // Prevent CPU overload
+        break;
     }
+
+    
 
     // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
 
@@ -175,6 +289,7 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
 
 fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     log::info!("Setting up PCM1865");
