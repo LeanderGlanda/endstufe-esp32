@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 8; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 32; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -157,7 +157,6 @@ fn main() -> anyhow::Result<()> {
         }
 
         thread::sleep(Duration::from_micros(1000)); // Prevent CPU overload
-        break;
     }
 
     // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
