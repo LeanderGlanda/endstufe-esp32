@@ -27,7 +27,7 @@ use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
 use control::handle_command;
 
-const AUDIO_DATA: &[u8] = include_bytes!("../HellsBells.raw");
+// const AUDIO_DATA: &[u8] = include_bytes!("../HellsBells.raw");
 
 /// Lets do some planning of this:
 /// The GPIOs are only accessible to RP2040 right now, which means either ESP32 sends commands to RP2040 or RP2040 configures them in a way fixed. But that's little bit bad because then amplifier muting doesn't work like it should.
@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 2; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 8; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -140,14 +140,23 @@ fn main() -> anyhow::Result<()> {
 
     i2s_driver.tx_enable();
 
+    thread::sleep(Duration::from_millis(100));
+
     loop {
+        // Convert i16 samples to u8 byte array (little-endian)
+        for (i, &sample) in samples.iter().enumerate() {
+            let bytes = sample.to_le_bytes();
+            byte_buffer[2 * i] = bytes[0];
+            byte_buffer[2 * i + 1] = bytes[1];
+        }
+
         // Write to I2S with a timeout of 1000 ticks
-        match i2s_driver.write(AUDIO_DATA, TickType_t::Hz(1000).into()) {
+        match i2s_driver.write(&byte_buffer, TickType_t::Hz(1000).into()) {
             Ok(_) => (),
             Err(e) => println!("I2S write error: {:?}", e),
         }
 
-        thread::sleep(Duration::from_micros(100)); // Prevent CPU overload
+        thread::sleep(Duration::from_micros(1000)); // Prevent CPU overload
         break;
     }
 
