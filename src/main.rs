@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 1024; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 512; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -142,65 +142,47 @@ fn main() -> anyhow::Result<()> {
 
     hardware_init(&shared_i2c)?;
 
-    setup_wifi(peripherals.modem, sys_loop, nvs);
+    // setup_wifi(peripherals.modem, sys_loop, nvs);
+
+    log::info!("Playing back audio");
 
 
 
 
-
-    let (tx, rx) = mpsc::channel::<i16>(); // Channel with capacity of 100 items
-    let buffer = Arc::new(Mutex::new(VecDeque::new()));
+    let (tx, rx): (SyncSender<i16>, Receiver<i16>) = mpsc::sync_channel(1024*16);
 
 
+    // --- Producer Thread ---
+    // This thread continuously generates a sine wave and pushes stereo samples into the shared buffer.
     {
-        let buffer = Arc::clone(&buffer);
+        let tx = tx.clone();
         thread::spawn(move || {
+            let sample_rate = SAMPLE_RATE as f32;
+            let freq = 440.0;
+            let amplitude = AMPLITUDE;
+            let mut phase: f32 = 0.0;
+            let phase_inc = 2.0 * std::f32::consts::PI * freq / sample_rate;
+            
             loop {
-                // This call will block until a sample is received.
-                let sample = rx.recv().expect("Receiving not working");
-                let mut buffer_lock = buffer.lock().unwrap();
-                buffer_lock.push_back(sample);
+                let sample_val = (amplitude as f32 * phase.sin()) as i16;
+    
+                // Blocks if the buffer is full
+                if let Err(_) = tx.send(sample_val) {
+                    break; // Stop if receiver is dropped
+                }
+                if let Err(_) = tx.send(sample_val) {
+                    break;
+                }
+    
+                phase += phase_inc;
+                if phase > 2.0 * std::f32::consts::PI {
+                    phase -= 2.0 * std::f32::consts::PI;
+                }
+    
+                thread::yield_now();
             }
         });
     }
-
-
-    // ─── SETUP HTTP SERVER ───────────────────────────────────────────
-    let http_server_config = HttpConfig {
-        stack_size: 50 * 1024, // Increase if your handler needs more stack.
-        ..Default::default()
-    };
-    let mut server = EspHttpServer::new(&http_server_config)?;
-
-    {
-        // Register an HTTP POST handler at "/upload".
-        // When a client sends a chunk of audio, we immediately read it and forward it over the channel.
-        server.fn_handler::<anyhow::Error, _>("/upload", Method::Post, move |mut req| {
-            let mut body = Vec::new();
-            let mut buf = [0u8; 1400]; // Temporary buffer (adjust size as needed)
-            loop {
-                let n = req.read(&mut buf)?;
-                if n == 0 {
-                    break;
-                }
-                body.extend_from_slice(&buf[..n]);
-            }
-            log::info!("Received audio chunk of {} bytes", body.len());
-
-            while body.len() >= 2 {
-                let sample = i16::from_le_bytes([body[0], body[1]]);
-                if tx.send(sample).is_err() {
-                    log::error!("Failed to send sample to the buffer.");
-                }
-                body = body[2..].to_vec(); // Remove the processed bytes
-            }
-        
-            req.into_ok_response()?;
-            Ok(())
-        })?;
-    }
-    log::info!("HTTP server running");
-
 
 
     log::info!("Enabling I2s");
@@ -208,45 +190,31 @@ fn main() -> anyhow::Result<()> {
     i2s_driver.tx_enable();
 
 
-    // --- Spawn I2S Playback Thread ---
-    // This thread continuously pulls a fixed number of samples from the shared buffer,
-    // converts them to a byte array, and writes them to I2S.
+    // --- Consumer Thread (I2S Playback) ---
     {
-        let buffer = Arc::clone(&buffer);
-        // Define the number of i16 samples per I2S write.
-        // (Make sure this is an even number for stereo.)
-        const CHUNK_SAMPLES: usize = 64;
         thread::spawn(move || {
+            const CHUNK_SAMPLES: usize = 512;
+
             loop {
-                // Prepare a buffer of CHUNK_SAMPLES i16 samples.
                 let mut samples = [0i16; CHUNK_SAMPLES];
-                {
-                    let mut buf = buffer.lock().unwrap();
-                    for i in 0..CHUNK_SAMPLES {
-                        if let Some(s) = buf.pop_front() {
-                            samples[i] = s;
-                        } else {
-                            // If no sample is available, output silence.
-                            samples[i] = 0;
-                        }
-                    }
+
+                for i in 0..CHUNK_SAMPLES {
+                    samples[i] = rx.recv().unwrap_or(0); // Blocks until data is available
                 }
-                // Convert i16 samples to u8 (little-endian).
+
                 let mut byte_buffer = [0u8; CHUNK_SAMPLES * 2];
                 for (i, sample) in samples.iter().enumerate() {
                     let bytes = sample.to_le_bytes();
                     byte_buffer[2 * i] = bytes[0];
                     byte_buffer[2 * i + 1] = bytes[1];
                 }
-                // Use the proper timeout constructor.
+
                 let timeout = TickType_t::Hz(1000);
                 if let Err(e) = i2s_driver.write(&byte_buffer, timeout.into()) {
                     log::error!("I2S write error: {:?}", e);
                 }
-                // Sleep for the duration corresponding to the chunk:
-                // (CHUNK_SAMPLES samples / SAMPLE_RATE) seconds.
-                let sleep_duration = Duration::from_micros(100);
-                thread::sleep(sleep_duration);
+
+                //thread::sleep(Duration::from_micros(100));
             }
         });
     }
