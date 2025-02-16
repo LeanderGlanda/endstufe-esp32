@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -139,47 +140,34 @@ fn main() -> anyhow::Result<()> {
         ws,
     )?;
 
-
-    fn generate_sine_wave(samples: &mut [i16]) {
-        let sample_count = samples.len() / 2; // Stereo: Left + Right
-        for i in 0..sample_count {
-            let sample_value = (AMPLITUDE as f32 * (2.0 * std::f32::consts::PI * SINE_FREQ * i as f32 / SAMPLE_RATE as f32).sin()) as i16;
-            samples[2 * i] = sample_value;     // Left channel
-            samples[2 * i + 1] = sample_value; // Right channel
-        }
-    }
-
-    fn generate_square_wave(samples: &mut [i16]) {
-        let period = SAMPLE_RATE / (2 * SINE_FREQ as u32);
-        for i in 0..samples.len() / 2 {
-            let value = if (i / period as usize) % 2 == 0 { AMPLITUDE } else { -AMPLITUDE };
-            samples[2 * i] = value;
-            samples[2 * i + 1] = value;
-        }
-    }
-
-
-    let mut samples = [0i16; 1024]; // Buffer for audio data (512 stereo samples)
-    let mut byte_buffer = [0u8; 2048]; // 2x the number of samples (16-bit -> 2 bytes per sample)
-    //generate_square_wave(&mut samples);
-    generate_sine_wave(&mut samples);
-
     hardware_init(&shared_i2c)?;
 
     setup_wifi(peripherals.modem, sys_loop, nvs);
 
 
 
-    let (audio_tx, audio_rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(100);
 
 
+    let (tx, rx) = mpsc::channel::<i16>(); // Channel with capacity of 100 items
+    let buffer = Arc::new(Mutex::new(VecDeque::new()));
 
 
+    {
+        let buffer = Arc::clone(&buffer);
+        thread::spawn(move || {
+            loop {
+                // This call will block until a sample is received.
+                let sample = rx.recv().expect("Receiving not working");
+                let mut buffer_lock = buffer.lock().unwrap();
+                buffer_lock.push_back(sample);
+            }
+        });
+    }
 
 
     // ─── SETUP HTTP SERVER ───────────────────────────────────────────
     let http_server_config = HttpConfig {
-        stack_size: 10 * 1024, // Increase if your handler needs more stack.
+        stack_size: 50 * 1024, // Increase if your handler needs more stack.
         ..Default::default()
     };
     let mut server = EspHttpServer::new(&http_server_config)?;
@@ -187,10 +175,9 @@ fn main() -> anyhow::Result<()> {
     {
         // Register an HTTP POST handler at "/upload".
         // When a client sends a chunk of audio, we immediately read it and forward it over the channel.
-        let audio_tx_clone = audio_tx.clone();
         server.fn_handler::<anyhow::Error, _>("/upload", Method::Post, move |mut req| {
             let mut body = Vec::new();
-            let mut buf = [0u8; 1024]; // Temporary buffer (adjust size as needed)
+            let mut buf = [0u8; 1400]; // Temporary buffer (adjust size as needed)
             loop {
                 let n = req.read(&mut buf)?;
                 if n == 0 {
@@ -199,10 +186,15 @@ fn main() -> anyhow::Result<()> {
                 body.extend_from_slice(&buf[..n]);
             }
             log::info!("Received audio chunk of {} bytes", body.len());
-        
-            if let Err(e) = audio_tx_clone.send(body) {
-                log::error!("Failed to forward audio chunk: {:?}", e);
+
+            while body.len() >= 2 {
+                let sample = i16::from_le_bytes([body[0], body[1]]);
+                if tx.send(sample).is_err() {
+                    log::error!("Failed to send sample to the buffer.");
+                }
+                body = body[2..].to_vec(); // Remove the processed bytes
             }
+        
             req.into_ok_response()?;
             Ok(())
         })?;
@@ -216,30 +208,48 @@ fn main() -> anyhow::Result<()> {
     i2s_driver.tx_enable();
 
 
-    // ─── I2S PLAYBACK THREAD ─────────────────────────────────────────
-    // This thread waits for audio chunks from the HTTP endpoint and writes them to I2S.
-    thread::spawn(move || {
-        loop {
-            // Block until a chunk is available.
-            match audio_rx.recv() {
-                Ok(chunk) => {
-                    log::info!("Playing back data");
-                    // Write the chunk to I2S.
-                    // The timeout value (in ticks) can be adjusted as needed.
-                    let timeout = TickType_t::Hz(1000);
-                    if let Err(e) = i2s_driver.write(&chunk, timeout.into()) {
-                        log::error!("I2S write error: {:?}", e);
+    // --- Spawn I2S Playback Thread ---
+    // This thread continuously pulls a fixed number of samples from the shared buffer,
+    // converts them to a byte array, and writes them to I2S.
+    {
+        let buffer = Arc::clone(&buffer);
+        // Define the number of i16 samples per I2S write.
+        // (Make sure this is an even number for stereo.)
+        const CHUNK_SAMPLES: usize = 64;
+        thread::spawn(move || {
+            loop {
+                // Prepare a buffer of CHUNK_SAMPLES i16 samples.
+                let mut samples = [0i16; CHUNK_SAMPLES];
+                {
+                    let mut buf = buffer.lock().unwrap();
+                    for i in 0..CHUNK_SAMPLES {
+                        if let Some(s) = buf.pop_front() {
+                            samples[i] = s;
+                        } else {
+                            // If no sample is available, output silence.
+                            samples[i] = 0;
+                        }
                     }
                 }
-                Err(e) => {
-                    log::error!("Audio channel error: {:?}", e);
-                    break;
+                // Convert i16 samples to u8 (little-endian).
+                let mut byte_buffer = [0u8; CHUNK_SAMPLES * 2];
+                for (i, sample) in samples.iter().enumerate() {
+                    let bytes = sample.to_le_bytes();
+                    byte_buffer[2 * i] = bytes[0];
+                    byte_buffer[2 * i + 1] = bytes[1];
                 }
+                // Use the proper timeout constructor.
+                let timeout = TickType_t::Hz(1000);
+                if let Err(e) = i2s_driver.write(&byte_buffer, timeout.into()) {
+                    log::error!("I2S write error: {:?}", e);
+                }
+                // Sleep for the duration corresponding to the chunk:
+                // (CHUNK_SAMPLES samples / SAMPLE_RATE) seconds.
+                let sleep_duration = Duration::from_micros(100);
+                thread::sleep(sleep_duration);
             }
-        }
-    });
-
-
+        });
+    }
 
 
 
@@ -252,25 +262,6 @@ fn main() -> anyhow::Result<()> {
 
 
     thread::sleep(Duration::from_millis(100));
-
-    loop {
-        // Convert i16 samples to u8 byte array (little-endian)
-        for (i, &sample) in samples.iter().enumerate() {
-            let bytes = sample.to_le_bytes();
-            byte_buffer[2 * i] = bytes[0];
-            byte_buffer[2 * i + 1] = bytes[1];
-        }
-
-        // Write to I2S with a timeout of 1000 ticks
-        match i2s_driver.write(&byte_buffer, TickType_t::Hz(1000).into()) {
-            Ok(_) => (),
-            Err(e) => println!("I2S write error: {:?}", e),
-        }
-
-        thread::sleep(Duration::from_micros(1000)); // Prevent CPU overload
-        break;
-    }
-
     
 
     // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
