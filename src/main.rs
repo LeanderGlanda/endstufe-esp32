@@ -149,12 +149,32 @@ fn main() -> anyhow::Result<()> {
 
 
 
-    let (tx, rx): (SyncSender<i16>, Receiver<i16>) = mpsc::sync_channel(1024*16);
+    let (tx, rx): (SyncSender<Vec<i16>>, Receiver<Vec<i16>>) = mpsc::sync_channel(256);
+
+    fn generate_sine_wave(samples: &mut [i16]) {
+        let sample_count = samples.len() / 2; // Stereo: Left + Right
+        for i in 0..sample_count {
+            let sample_value = (AMPLITUDE as f32 * (2.0 * std::f32::consts::PI * SINE_FREQ * i as f32 / SAMPLE_RATE as f32).sin()) as i16;
+            samples[2 * i] = sample_value;     // Left channel
+            samples[2 * i + 1] = sample_value; // Right channel
+        }
+    }
+
+    let mut samples = [0i16; 1024];
+    generate_sine_wave(&mut samples);
+
+    let mut samples: Vec<i16> = Vec::from(samples);
+    //log::info!("{:#?}", samples);
+
+    for i in 0..128 {
+        tx.send(samples.clone());
+    }
+
 
 
     // --- Producer Thread ---
     // This thread continuously generates a sine wave and pushes stereo samples into the shared buffer.
-    {
+    /*{
         let tx = tx.clone();
         thread::spawn(move || {
             let sample_rate = SAMPLE_RATE as f32;
@@ -182,40 +202,34 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_micros(100));
             }
         });
-    }
+    }*/
+
+    let samples = rx.recv().expect("No data available");
+    // log::info!("{:#?}", samples);
 
 
     log::info!("Enabling I2s");
 
-    // i2s_driver.tx_enable();
+    i2s_driver.tx_enable();
 
 
     // --- Consumer Thread (I2S Playback) ---
     {
         thread::spawn(move || {
-            const CHUNK_SAMPLES: usize = 32;
-
             loop {
 
-                let mut samples = [0i16; CHUNK_SAMPLES];
+                let samples = rx.recv().expect("No data available");
 
-                for i in 0..CHUNK_SAMPLES {
-                    samples[i] = rx.recv().expect("No data available");
-                }
-
-                let mut byte_buffer = [0u8; CHUNK_SAMPLES * 2];
-                for (i, sample) in samples.iter().enumerate() {
-                    let bytes = sample.to_le_bytes();
-                    byte_buffer[2 * i] = bytes[0];
-                    byte_buffer[2 * i + 1] = bytes[1];
-                }
+                let mut byte_buffer = unsafe { samples.align_to().1 };
 
                 let timeout = TickType_t::Hz(1000);
-                if let Err(e) = i2s_driver.write(&byte_buffer, timeout.into()) {
+                if let Err(e) = i2s_driver.write(byte_buffer, timeout.into()) {
                     log::error!("I2S write error: {:?}", e);
                 }
 
-                thread::sleep(Duration::from_micros(1000));
+                thread::sleep(Duration::from_micros(100));
+
+                log::info!("Hello");
             }
         });
     }
