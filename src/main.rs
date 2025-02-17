@@ -142,14 +142,14 @@ fn main() -> anyhow::Result<()> {
 
     hardware_init(&shared_i2c)?;
 
-    // setup_wifi(peripherals.modem, sys_loop, nvs);
+    setup_wifi(peripherals.modem, sys_loop, nvs);
 
     log::info!("Playing back audio");
 
 
 
 
-    let (tx, rx): (SyncSender<Vec<i16>>, Receiver<Vec<i16>>) = mpsc::sync_channel(64);
+    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64);
 
     fn generate_sine_wave() -> Vec<i16> {
         let samples_per_cycle = (SAMPLE_RATE / SINE_FREQ) as usize; // Number of samples per full wave cycle
@@ -167,10 +167,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut samples: Vec<i16> = generate_sine_wave();
+    let samples: Vec<u8> = unsafe { samples.align_to().1 }.to_vec();
     //log::info!("{:#?}", samples);
 
 
-
+    /*
     // --- Producer Thread ---
     // This thread continuously generates a sine wave and pushes stereo samples into the shared buffer.
     {
@@ -185,8 +186,47 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
-    let samples = rx.recv().expect("No data available");
+    let samples = rx.recv().expect("No data available");*/
     // log::info!("{:#?}", samples);
+
+
+    
+    // ─── SETUP HTTP SERVER ───────────────────────────────────────────
+    let http_server_config = HttpConfig {
+        stack_size: 20 * 1024, // Increase if your handler needs more stack.
+        ..Default::default()
+    };
+    let mut server = EspHttpServer::new(&http_server_config)?;
+
+    {
+        // Register an HTTP POST handler at "/upload".
+        // When a client sends a chunk of audio, we immediately read it and forward it over the channel.
+        let tx = tx.clone();
+        server.fn_handler::<anyhow::Error, _>("/upload", Method::Post, move |mut req| {
+            let mut body = Vec::new();
+            let mut buf = [0u8; 1024]; // Temporary buffer (adjust size as needed)
+            log::info!("Started receiving");
+            loop {
+                let n = req.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                body.extend_from_slice(&buf[..n]);
+            }
+            log::info!("Received audio chunk of {} bytes", body.len());
+        
+            if let Err(e) = tx.send(body) {
+                log::error!("Failed to forward audio chunk: {:?}", e);
+            }
+
+            log::info!("Finished sending data to channel");
+
+            req.into_ok_response()?;
+            Ok(())
+        })?;
+    }
+    log::info!("HTTP server running");
+
 
 
     log::info!("Enabling I2s");
@@ -201,10 +241,8 @@ fn main() -> anyhow::Result<()> {
 
                 let samples = rx.recv().expect("No data available");
 
-                let mut byte_buffer = unsafe { samples.align_to().1 };
-
                 let timeout = TickType_t::Hz(1000);
-                if let Err(e) = i2s_driver.write_all(byte_buffer, timeout.into()) {
+                if let Err(e) = i2s_driver.write_all(&samples, timeout.into()) {
                     log::error!("I2S write error: {:?}", e);
                 }
 
