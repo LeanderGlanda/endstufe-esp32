@@ -127,7 +127,7 @@ fn main() -> anyhow::Result<()> {
 
     const SAMPLE_RATE: u32 = 48_000;
     const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 512; // Reduce amplitude to prevent distortion
+    const AMPLITUDE: i16 = i16::MAX / 4096; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -149,7 +149,7 @@ fn main() -> anyhow::Result<()> {
 
 
 
-    let (tx, rx): (SyncSender<Vec<i16>>, Receiver<Vec<i16>>) = mpsc::sync_channel(256);
+    let (tx, rx): (SyncSender<Vec<i16>>, Receiver<Vec<i16>>) = mpsc::sync_channel(64);
 
     fn generate_sine_wave(samples: &mut [i16]) {
         let sample_count = samples.len() / 2; // Stereo: Left + Right
@@ -166,43 +166,21 @@ fn main() -> anyhow::Result<()> {
     let mut samples: Vec<i16> = Vec::from(samples);
     //log::info!("{:#?}", samples);
 
-    for i in 0..128 {
-        tx.send(samples.clone());
-    }
-
 
 
     // --- Producer Thread ---
     // This thread continuously generates a sine wave and pushes stereo samples into the shared buffer.
-    /*{
+    {
         let tx = tx.clone();
         thread::spawn(move || {
-            let sample_rate = SAMPLE_RATE as f32;
-            let freq = 440.0;
-            let amplitude = AMPLITUDE;
-            let mut phase: f32 = 0.0;
-            let phase_inc = 2.0 * std::f32::consts::PI * freq / sample_rate;
             
             loop {
-                let sample_val = (amplitude as f32 * phase.sin()) as i16;
+                tx.send(samples.clone());
     
-                // Blocks if the buffer is full
-                if let Err(_) = tx.send(sample_val) {
-                    break; // Stop if receiver is dropped
-                }
-                if let Err(_) = tx.send(sample_val) {
-                    break;
-                }
-    
-                phase += phase_inc;
-                if phase > 2.0 * std::f32::consts::PI {
-                    phase -= 2.0 * std::f32::consts::PI;
-                }
-    
-                thread::sleep(Duration::from_micros(100));
+                // thread::sleep(Duration::from_micros(100));
             }
         });
-    }*/
+    }
 
     let samples = rx.recv().expect("No data available");
     // log::info!("{:#?}", samples);
@@ -223,13 +201,13 @@ fn main() -> anyhow::Result<()> {
                 let mut byte_buffer = unsafe { samples.align_to().1 };
 
                 let timeout = TickType_t::Hz(1000);
-                if let Err(e) = i2s_driver.write(byte_buffer, timeout.into()) {
+                if let Err(e) = i2s_driver.write_all(byte_buffer, timeout.into()) {
                     log::error!("I2S write error: {:?}", e);
                 }
 
-                thread::sleep(Duration::from_micros(100));
+                // thread::sleep(Duration::from_micros(100));
 
-                log::info!("Hello");
+                // log::info!("Hello");
             }
         });
     }
