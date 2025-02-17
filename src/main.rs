@@ -144,6 +144,8 @@ fn main() -> anyhow::Result<()> {
 
     // setup_wifi(peripherals.modem, sys_loop, nvs);
 
+    return Ok(());
+
     log::info!("Playing back audio");
 
 
