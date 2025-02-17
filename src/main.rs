@@ -126,8 +126,8 @@ fn main() -> anyhow::Result<()> {
     let mclk = Some(peripherals.pins.gpio11);
 
     const SAMPLE_RATE: u32 = 48_000;
-    const SINE_FREQ: f32 = 440.0; // 440 Hz A4 tone
-    const AMPLITUDE: i16 = i16::MAX / 4096; // Reduce amplitude to prevent distortion
+    const SINE_FREQ: u32 = 440; // 440 Hz A4 tone
+    const AMPLITUDE: i16 = i16::MAX / 1024; // Reduce amplitude to prevent distortion
 
     let config = StdConfig::philips(SAMPLE_RATE, DataBitWidth::Bits16);
 
@@ -151,19 +151,22 @@ fn main() -> anyhow::Result<()> {
 
     let (tx, rx): (SyncSender<Vec<i16>>, Receiver<Vec<i16>>) = mpsc::sync_channel(64);
 
-    fn generate_sine_wave(samples: &mut [i16]) {
-        let sample_count = samples.len() / 2; // Stereo: Left + Right
-        for i in 0..sample_count {
-            let sample_value = (AMPLITUDE as f32 * (2.0 * std::f32::consts::PI * SINE_FREQ * i as f32 / SAMPLE_RATE as f32).sin()) as i16;
-            samples[2 * i] = sample_value;     // Left channel
-            samples[2 * i + 1] = sample_value; // Right channel
+    fn generate_sine_wave() -> Vec<i16> {
+        let samples_per_cycle = (SAMPLE_RATE / SINE_FREQ) as usize; // Number of samples per full wave cycle
+        let mut buffer = vec![0i16; samples_per_cycle * 2]; // Stereo buffer
+    
+        for i in 0..samples_per_cycle {
+            let sample_value = (AMPLITUDE as f32 * 
+                (2.0 * std::f32::consts::PI * i as f32 / samples_per_cycle as f32).sin()) as i16;
+    
+            buffer[2 * i] = sample_value;     // Left channel
+            buffer[2 * i + 1] = sample_value; // Right channel
         }
+    
+        buffer
     }
 
-    let mut samples = [0i16; 1024];
-    generate_sine_wave(&mut samples);
-
-    let mut samples: Vec<i16> = Vec::from(samples);
+    let mut samples: Vec<i16> = generate_sine_wave();
     //log::info!("{:#?}", samples);
 
 
