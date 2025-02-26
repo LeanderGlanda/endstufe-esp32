@@ -177,40 +177,12 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
-    // let samples = rx.recv().expect("No data available");
-    // log::info!("{:#?}", samples);
-
-
-    
-
-    /*let mut buf = [0; 256];
-    let (amt, src) = socket.recv_from(&mut buf)?;
-
-    log::info!("{:?}", buf);*/
-
 
 
     log::info!("Enabling I2s");
 
     i2s_driver.tx_enable();
 
-    /*let mut counter = 0;
-
-    loop {
-        log::info!("tick");
-        if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
-            let timeout = TickType_t::Hz(1000);
-            //i2s_driver.write_all(&buffer[..size], timeout.into())?;
-        }
-
-        counter += 1;
-
-        if (counter > 100) {
-            log::info!("output");
-            counter = 0;
-        }
-
-    }*/
 
     fn print_hex(data: &[u8]) {
         // Print data in hexadecimal format
