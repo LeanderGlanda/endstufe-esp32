@@ -155,6 +155,9 @@ fn main() -> anyhow::Result<()> {
 
     let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64); // Größere Queue
 
+
+    // Use "ffmpeg -re -i ".\1. Hells Bells.wav" -ac 2 -ar 48000 -acodec pcm_s16le -f rtp rtp://192.168.178.82:5004" for streaming to the esp32
+
     let socket = UdpSocket::bind("0.0.0.0:5004").expect("Failed to bind socket");
     //(socket.set_nonblocking(true).ok(); // Setze Non-Blocking Modus für bessere Performance
 
