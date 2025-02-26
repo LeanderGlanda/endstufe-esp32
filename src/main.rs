@@ -4,8 +4,8 @@ use std::collections::VecDeque;
 use std::net::UdpSocket;
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+use std::{io, thread};
+use std::time::{Duration, Instant};
 
 use drivers::{adau1467, adau1962a, tpa3116d2};
 use embedded_svc::http::Headers;
@@ -155,9 +155,12 @@ fn main() -> anyhow::Result<()> {
 
 
 
-    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64);
+    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(128);
 
     let socket = UdpSocket::bind("0.0.0.0:12345").unwrap();
+    socket.set_nonblocking(true).expect("Failed to set non-blocking mode");
+
+    UdpFramed
 
     {
         let tx = tx.clone();
@@ -167,12 +170,25 @@ fn main() -> anyhow::Result<()> {
             
             loop {
 
-                if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
-                    tx.send(buffer.to_vec());
+                log::info!("Looping");
+
+                socket.
+
+
+                match socket.recv_from(&mut buffer) {
+                    Ok((size, _src)) => {
+                        tx.send(buffer.to_vec()).unwrap();  // Send data to the channel
+                    }
+                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                        // No data, continue the loop
+                        // Optionally, you can add a small sleep or check for other conditions
+                        thread::sleep(Duration::from_micros(1000));
+                    }
+                    Err(e) => {
+                        eprintln!("Error receiving data: {:?}", e);
+                    }
                 }
-                
-    
-                // thread::sleep(Duration::from_micros(100));
+        
             }
         });
     }
@@ -198,23 +214,46 @@ fn main() -> anyhow::Result<()> {
     // --- Consumer Thread (I2S Playback) ---
     {
         thread::spawn(move || {
-
+    
             thread::sleep(Duration::from_secs(5));
-
+    
+            let mut accumulated_data = Vec::new();  // Buffer to accumulate data
+            let mut count = 0;  // Counter to track the number of times data is received
+    
+            let mut last_received_time = Instant::now(); // Start tracking time
+    
             loop {
-
+    
                 let samples = rx.recv().expect("No data available");
-
-                // print_hex(&samples);
-
-                let timeout = TickType_t::Hz(2000);
-                if let Err(e) = i2s_driver.write_all(&samples, timeout.into()) {
-                    log::error!("I2S write error: {:?}", e);
+                accumulated_data.extend(samples);
+    
+                // Check the elapsed time since the last data received
+                let elapsed_time = last_received_time.elapsed();
+    
+                // Print the elapsed time every 10th receive
+                if count % 10 == 0 {
+                    let elapsed_us = elapsed_time.as_micros(); // Convert to microseconds
+                    log::info!("Time since last receive: {} µs", elapsed_us);
                 }
-
+    
+                last_received_time = Instant::now();  // Reset the timestamp after printing
+    
+                count += 1; // Increment the counter
+    
+                if accumulated_data.len() >= 8192 {
+    
+                    let data_to_send = accumulated_data.split_off(8192);
+    
+                    let timeout = TickType_t::Hz(2000);
+                    if let Err(e) = i2s_driver.write_all(&data_to_send, timeout.into()) {
+                        log::error!("I2S write error: {:?}", e);
+                    }
+    
+                }
+    
+                // Optional sleep or further logic here
                 // thread::sleep(Duration::from_micros(100));
-
-                // log::info!("Hello");
+    
             }
         });
     }
