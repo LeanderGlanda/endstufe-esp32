@@ -34,6 +34,7 @@ tokio = { version = "1", features = ["rt"] }
 embedded-svc = "0.28.1"
 serde_json = "1.0.135"
 crossbeam-channel = "0.5.14"
+rtp-rs = "0.6.0"
 
 [build-dependencies]
 embuild = "0.32.0"

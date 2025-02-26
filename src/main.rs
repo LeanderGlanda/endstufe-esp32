@@ -23,6 +23,7 @@ use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::sys::{TickType_t, MALLOC_CAP_INTERNAL};
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
+use rtp_rs::RtpReader;
 
 mod drivers;
 mod i2c_helper;
@@ -155,40 +156,22 @@ fn main() -> anyhow::Result<()> {
 
 
 
-    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(128);
+    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64);
 
-    let socket = UdpSocket::bind("0.0.0.0:12345").unwrap();
-    socket.set_nonblocking(true).expect("Failed to set non-blocking mode");
-
-    UdpFramed
+    let socket = UdpSocket::bind("0.0.0.0:5004").expect("Failed to bind socket");
 
     {
         let tx = tx.clone();
         thread::spawn(move || {
 
-            let mut buffer = [0u8; 1024];
+            let mut buffer = [0u8; 1500];
             
             loop {
-
-                log::info!("Looping");
-
-                socket.
-
-
-                match socket.recv_from(&mut buffer) {
-                    Ok((size, _src)) => {
-                        tx.send(buffer.to_vec()).unwrap();  // Send data to the channel
-                    }
-                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                        // No data, continue the loop
-                        // Optionally, you can add a small sleep or check for other conditions
-                        thread::sleep(Duration::from_micros(1000));
-                    }
-                    Err(e) => {
-                        eprintln!("Error receiving data: {:?}", e);
+                if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
+                    if let Ok(rtp) = RtpReader::new(&buffer[..size]) {
+                        tx.send(rtp.payload().to_vec()).ok(); // Send PCM to playback
                     }
                 }
-        
             }
         });
     }
@@ -215,7 +198,7 @@ fn main() -> anyhow::Result<()> {
     {
         thread::spawn(move || {
     
-            thread::sleep(Duration::from_secs(5));
+            // thread::sleep(Duration::from_secs(5));
     
             let mut accumulated_data = Vec::new();  // Buffer to accumulate data
             let mut count = 0;  // Counter to track the number of times data is received
