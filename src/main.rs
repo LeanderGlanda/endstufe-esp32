@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use std::collections::VecDeque;
+use std::net::UdpSocket;
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -47,7 +48,11 @@ use control::handle_command;
 /// This application has to configure all the ICs. 
 /// 
 
-fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {  
+fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {
+
+    let mut tpa3116d2 = TPA3116D2::new(shared_i2c.clone());
+
+    tpa3116d2.enable_speaker_outputs(false)?;  
 
     setup_pcm1865(shared_i2c.clone())?;
 
@@ -55,7 +60,8 @@ fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {
 
     setup_adau1467(shared_i2c.clone())?;
 
-    setup_tpa3116d2(shared_i2c.clone())?;
+    //setup_tpa3116d2(shared_i2c.clone())?;
+    tpa3116d2.enable_speaker_outputs(true)?;  
 
     // call_every_command(shared_i2c.clone())?;
 
@@ -142,7 +148,7 @@ fn main() -> anyhow::Result<()> {
 
     hardware_init(&shared_i2c)?;
 
-    setup_wifi(peripherals.modem, sys_loop, nvs);
+    setup_wifi(peripherals.modem, sys_loop, nvs)?;
 
     log::info!("Playing back audio");
 
@@ -151,81 +157,36 @@ fn main() -> anyhow::Result<()> {
 
     let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64);
 
-    fn generate_sine_wave() -> Vec<i16> {
-        let samples_per_cycle = (SAMPLE_RATE / SINE_FREQ) as usize; // Number of samples per full wave cycle
-        let mut buffer = vec![0i16; samples_per_cycle * 2]; // Stereo buffer
-    
-        for i in 0..samples_per_cycle {
-            let sample_value = (AMPLITUDE as f32 * 
-                (2.0 * std::f32::consts::PI * i as f32 / samples_per_cycle as f32).sin()) as i16;
-    
-            buffer[2 * i] = sample_value;     // Left channel
-            buffer[2 * i + 1] = sample_value; // Right channel
-        }
-    
-        buffer
-    }
+    let socket = UdpSocket::bind("0.0.0.0:12345").unwrap();
 
-    let mut samples: Vec<i16> = generate_sine_wave();
-    let samples: Vec<u8> = unsafe { samples.align_to().1 }.to_vec();
-    //log::info!("{:#?}", samples);
-
-
-    /*
-    // --- Producer Thread ---
-    // This thread continuously generates a sine wave and pushes stereo samples into the shared buffer.
     {
         let tx = tx.clone();
         thread::spawn(move || {
+
+            let mut buffer = [0u8; 1024];
             
             loop {
-                tx.send(samples.clone());
+
+                if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
+                    tx.send(buffer.to_vec());
+                }
+                
     
                 // thread::sleep(Duration::from_micros(100));
             }
         });
     }
 
-    let samples = rx.recv().expect("No data available");*/
+    // let samples = rx.recv().expect("No data available");
     // log::info!("{:#?}", samples);
 
 
     
-    // ─── SETUP HTTP SERVER ───────────────────────────────────────────
-    let http_server_config = HttpConfig {
-        stack_size: 20 * 1024, // Increase if your handler needs more stack.
-        ..Default::default()
-    };
-    let mut server = EspHttpServer::new(&http_server_config)?;
 
-    {
-        // Register an HTTP POST handler at "/upload".
-        // When a client sends a chunk of audio, we immediately read it and forward it over the channel.
-        let tx = tx.clone();
-        server.fn_handler::<anyhow::Error, _>("/upload", Method::Post, move |mut req| {
-            let mut body = Vec::new();
-            let mut buf = [0u8; 1024]; // Temporary buffer (adjust size as needed)
-            log::info!("Started receiving");
-            loop {
-                let n = req.read(&mut buf)?;
-                if n == 0 {
-                    break;
-                }
-                body.extend_from_slice(&buf[..n]);
-            }
-            log::info!("Received audio chunk of {} bytes", body.len());
-        
-            if let Err(e) = tx.send(body) {
-                log::error!("Failed to forward audio chunk: {:?}", e);
-            }
+    /*let mut buf = [0; 256];
+    let (amt, src) = socket.recv_from(&mut buf)?;
 
-            log::info!("Finished sending data to channel");
-
-            req.into_ok_response()?;
-            Ok(())
-        })?;
-    }
-    log::info!("HTTP server running");
+    log::info!("{:?}", buf);*/
 
 
 
@@ -233,15 +194,48 @@ fn main() -> anyhow::Result<()> {
 
     i2s_driver.tx_enable();
 
+    /*let mut counter = 0;
+
+    loop {
+        log::info!("tick");
+        if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
+            let timeout = TickType_t::Hz(1000);
+            //i2s_driver.write_all(&buffer[..size], timeout.into())?;
+        }
+
+        counter += 1;
+
+        if (counter > 100) {
+            log::info!("output");
+            counter = 0;
+        }
+
+    }*/
+
+    fn print_hex(data: &[u8]) {
+        // Print data in hexadecimal format
+        for chunk in data.chunks(16) { // Print 16 bytes per line
+            for byte in chunk {
+                print!("{:02x} ", byte);
+            }
+            println!(); // New line after each chunk
+        }
+    }
+
 
     // --- Consumer Thread (I2S Playback) ---
     {
         thread::spawn(move || {
+
+            thread::sleep(Duration::from_secs(5));
+
             loop {
 
                 let samples = rx.recv().expect("No data available");
 
-                let timeout = TickType_t::Hz(1000);
+                // print_hex(&samples);
+
+                let timeout = TickType_t::Hz(2000);
                 if let Err(e) = i2s_driver.write_all(&samples, timeout.into()) {
                     log::error!("I2S write error: {:?}", e);
                 }
