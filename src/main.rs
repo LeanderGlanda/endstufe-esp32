@@ -153,100 +153,66 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("Playing back audio");
 
-
-
-
-    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64);
+    let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(64); // Größere Queue
 
     let socket = UdpSocket::bind("0.0.0.0:5004").expect("Failed to bind socket");
+    //(socket.set_nonblocking(true).ok(); // Setze Non-Blocking Modus für bessere Performance
 
     {
         let tx = tx.clone();
         thread::spawn(move || {
-
             let mut buffer = [0u8; 1500];
-            
+
             loop {
-                if let Ok((size, _src)) = socket.recv_from(&mut buffer) {
-                    if let Ok(rtp) = RtpReader::new(&buffer[..size]) {
-                        tx.send(rtp.payload().to_vec()).ok(); // Send PCM to playback
+                match socket.recv_from(&mut buffer) {
+                    Ok((size, _src)) => {
+                        if let Ok(rtp) = RtpReader::new(&buffer[..size]) {
+                            let _ = tx.send(rtp.payload().to_vec());
+                        }
+                    }
+                    Err(_) => {
+                        thread::sleep(Duration::from_micros(500)); // Verhindert CPU-Überlastung
                     }
                 }
             }
         });
     }
 
-
-
-    log::info!("Enabling I2s");
-
+    log::info!("Enabling I2S");
     i2s_driver.tx_enable();
-
-
-    fn print_hex(data: &[u8]) {
-        // Print data in hexadecimal format
-        for chunk in data.chunks(16) { // Print 16 bytes per line
-            for byte in chunk {
-                print!("{:02x} ", byte);
-            }
-            println!(); // New line after each chunk
-        }
-    }
-
 
     // --- Consumer Thread (I2S Playback) ---
     {
         thread::spawn(move || {
-    
-            // thread::sleep(Duration::from_secs(5));
-    
-            let mut accumulated_data = Vec::new();  // Buffer to accumulate data
-            let mut count = 0;  // Counter to track the number of times data is received
-    
-            let mut last_received_time = Instant::now(); // Start tracking time
-    
+            let mut buffer: VecDeque<u8> = VecDeque::new();
+            let mut last_received_time = Instant::now();
+
             loop {
-    
-                let samples = rx.recv().expect("No data available");
-                accumulated_data.extend(samples);
-    
-                // Check the elapsed time since the last data received
-                let elapsed_time = last_received_time.elapsed();
-    
-                // Print the elapsed time every 10th receive
-                if count % 10 == 0 {
-                    let elapsed_us = elapsed_time.as_micros(); // Convert to microseconds
-                    log::info!("Time since last receive: {} µs", elapsed_us);
+                if let Ok(samples) = rx.try_recv() {
+                    buffer.extend(samples);
+                    let elapsed_us = last_received_time.elapsed().as_micros();
+                    if buffer.len() > 16384 {
+                        log::warn!("Audio Buffer Overflow! Len: {}", buffer.len());
+                    }
+                    last_received_time = Instant::now();
                 }
-    
-                last_received_time = Instant::now();  // Reset the timestamp after printing
-    
-                count += 1; // Increment the counter
-    
-                if accumulated_data.len() >= 8192 {
-    
-                    let data_to_send = accumulated_data.split_off(8192);
-    
+
+                if buffer.len() >= 8192 {
+                    let data_to_send: Vec<u8> = buffer.drain(..8192).collect();
                     let timeout = TickType_t::Hz(2000);
                     if let Err(e) = i2s_driver.write_all(&data_to_send, timeout.into()) {
                         log::error!("I2S write error: {:?}", e);
                     }
-    
                 }
-    
-                // Optional sleep or further logic here
-                // thread::sleep(Duration::from_micros(100));
-    
+
+                thread::sleep(Duration::from_micros(500)); // Verhindert unnötige CPU-Auslastung
+                unsafe {esp_idf_svc::sys::vTaskDelay(1); }
             }
         });
     }
 
-
-
-
-
     loop {
-        thread::sleep(Duration::from_micros(100000)); // Prevent CPU overload
+        thread::sleep(Duration::from_millis(100)); // Hauptthread entlasten
     }
 
 
