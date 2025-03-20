@@ -67,7 +67,7 @@ fn main() -> anyhow::Result<()> {
         log::info!("Hardware init complete");
     }
 
-    // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
+    web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
 
     Ok(())
 }
