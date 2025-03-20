@@ -22,8 +22,8 @@ pub fn setup_webserver(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefau
     let mut server = create_server()?;
 
     server.fn_handler("/volume", esp_idf_svc::http::Method::Get, |req| {
-        let respone = "Hello";
-        Err(req.into_response(200, Some(respone), &[]))
+        req.into_response(200, Some("Ok"), &[])?;
+        anyhow::Ok(())
     })?;
 
     Ok(())
