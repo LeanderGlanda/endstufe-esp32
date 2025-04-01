@@ -55,6 +55,7 @@ fn setup_adau1467(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
 
     adau1467.set_reset(true)?;
     adau1467.load_dsp_program()?;
+    adau1467.set_subwoofer_gain(6.0)?;
 
     Ok(())
 }
