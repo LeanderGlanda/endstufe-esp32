@@ -55,6 +55,17 @@ impl<'a> ADAU1467<'a> {
         Ok(())
     }
 
+    pub fn read_second_page_select_reg(&self) -> Result<(), anyhow::Error> {
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+    
+        let mut current_value = [0u8; 2];
+        i2c.write_read(self.address, &(0xF899 as u16).to_le_bytes(), &mut current_value, BLOCK)?;
+
+        log::info!("Second page select: {:?}", current_value);
+
+        Ok(())
+    }
+
     #[allow(dead_code)]
     pub fn mute_channel(&self, _channel: u8) -> Result<(), anyhow::Error> {
         // DSP muting logic
