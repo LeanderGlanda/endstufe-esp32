@@ -42,6 +42,7 @@ pub extern "C" fn i2c_write(i2c_address: u8, buffer: *const u8, length: i32) -> 
     if !buffer.is_null() && length > 0 {
         unsafe {
             let slice = std::slice::from_raw_parts(buffer, length as usize);
+            log::debug!("Sending to address {:02X}{:02X}", slice[0], slice[1]);
             i2c.write(i2c_address, slice, esp_idf_svc::hal::delay::BLOCK).unwrap();
         }
     } else {
