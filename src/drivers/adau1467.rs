@@ -122,9 +122,9 @@ impl<'a> ADAU1467<'a> {
         ];
 
         // Current register addresses for relevant filter coefficients
-        const B2_ADDR: u16 = 38 * 4;
-        const B1_ADDR: u16 = 39 * 4;
-        const B0_ADDR: u16 = 40 * 4;
+        const B2_ADDR: u16 = 38;
+        const B1_ADDR: u16 = 39;
+        const B0_ADDR: u16 = 40;
 
         let registers = [B2_ADDR, B1_ADDR, B0_ADDR];
 
