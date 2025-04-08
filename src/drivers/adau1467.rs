@@ -72,6 +72,41 @@ impl<'a> ADAU1467<'a> {
         Ok(())
     }
 
+    pub fn safeload_write(&self, data: &[u32], reg_addr: u16, lowerpage: bool) -> Result<(), anyhow::Error> {
+        if data.len() > 5 {
+            return Err(anyhow::anyhow!("Data slice must not exceed 5 elements"));
+        }
+
+        let mut buf: Vec<u8> = Vec::with_capacity(2 + 20 + 4 + 4);
+
+        // Safeload address 0x6000
+        buf.extend_from_slice(&[0x60, 0x00]);
+        
+        // Add the 5 data words (pad with zeros if needed)
+        for i in 0..5 {
+            let word = data.get(i).copied().unwrap_or(0);
+            buf.extend_from_slice(&word.to_be_bytes());
+        }
+
+        // Safeload data address
+        buf.extend_from_slice(&(reg_addr as u32).to_be_bytes());
+
+        // If writting to upper page, then add a word with 0
+        if !lowerpage {
+            buf.extend_from_slice(&0_u32.to_be_bytes());
+        }
+
+        // Safeload lower/upper page setting / words to write
+        buf.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        i2c.write(self.address, &buf, BLOCK)?;
+
+        Ok(())
+    }
+
+    
+
     fn float_to_fixed_8_24(value: f32) -> u32 {
         (value * (1 << 23) as f32) as u32
     }
