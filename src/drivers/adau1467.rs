@@ -1,9 +1,11 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{f64::consts::PI, sync::{Arc, Mutex}, time::Duration};
 
 use esp_idf_svc::hal::i2c::I2cDriver;
 use esp_idf_svc::hal::delay::BLOCK;
 
 use anyhow::{Error, Result};
+
+use crate::{i2c_helper::pretty_register_dump, linkwitz_riley_coeffs::LinkwitzRileyCoeffs};
 
 pub struct ADAU1467<'a> {
     i2c: Arc<Mutex<I2cDriver<'a>>>, // Use the lifetime parameter here
@@ -112,52 +114,15 @@ impl<'a> ADAU1467<'a> {
     }
 
     pub fn set_subwoofer_gain(&self, target_gain_db: f32) -> Result<(), anyhow::Error> {
+        const CROSSOVER_LOWPASS_FILTER1_BASE_ADDR: u16 = 38;
 
-        // These base coefficient values were taken from Linkwitz-Riley 24 low pass filter with
-        // 100Hz crossover frequency and 0dB gain setting in SigmaStudio
-        const BASE_COEFFS: [f32; 3] = [
-            2.67111819123059E-06,
-            5.34223638246117E-06,
-            2.67111819123059E-06,
-        ];
+        let coeffs = LinkwitzRileyCoeffs::new(192000.0, 100.0, target_gain_db as f64);
 
-        // Current register addresses for relevant filter coefficients
-        const B2_ADDR: u16 = 38;
-        const B1_ADDR: u16 = 39;
-        const B0_ADDR: u16 = 40;
+        log::debug!("Filter coefficients: {:?}", coeffs);
 
-        let registers = [B2_ADDR, B1_ADDR, B0_ADDR];
-
-        let gain_factor = 10f32.powf(target_gain_db / 20.0);
-        let new_coeffs: Vec<u32> = BASE_COEFFS
-            .iter()
-            .map(|&b| Self::float_to_fixed_8_24(b * gain_factor))
-            .collect();
-
-        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
-
-
-        let mut current_value = [0u8; 12];
-        i2c.write_read(self.address, &B2_ADDR.to_le_bytes(), &mut current_value, BLOCK)?;
-        println!("{:?}", current_value);
-        
-        for (i, &coeff) in new_coeffs.iter().enumerate() {
-            let data = vec![
-                (registers[i] >> 8) as u8,
-                registers[i] as u8,
-                (coeff >> 24) as u8,
-                (coeff >> 16) as u8,
-                (coeff >> 8) as u8,
-                coeff as u8,
-            ];
-            i2c.write(self.address,&data, BLOCK)?;
-        }
-
-        
-        let mut current_value = [0u8; 12];
-        i2c.write_read(self.address, &B2_ADDR.to_le_bytes(), &mut current_value, BLOCK)?;
-        println!("{:?}", current_value);
+        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER_LOWPASS_FILTER1_BASE_ADDR, true)?;
         
         Ok(())
     }
+
 }

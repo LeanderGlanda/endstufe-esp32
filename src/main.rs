@@ -32,6 +32,7 @@ mod control;
 mod web;
 mod sigmastudio;
 mod hardware_init;
+mod linkwitz_riley_coeffs;
 
 use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};

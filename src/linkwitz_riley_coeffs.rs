@@ -20,14 +20,14 @@ pub struct SecondOrderCoeffs {
 
 impl SecondOrderCoeffs {
     /// Returns the coefficients as an array of 5 u32 values, in 8.24 fixed-point format.
-    /// The order is: [b0, b1, b2, a1, a2]
+    /// The order is: [b2, b1, b0, a2, a1]
     pub fn to_fixed(&self) -> [u32; 5] {
         [
             to_fixed_unsigned(self.b[0]),
             to_fixed_unsigned(self.b[1]),
             to_fixed_unsigned(self.b[2]),
-            to_fixed_unsigned(self.a[0]),
             to_fixed_unsigned(self.a[1]),
+            to_fixed_unsigned(self.a[0]),
         ]
     }
 }
