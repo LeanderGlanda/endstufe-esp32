@@ -1,6 +1,13 @@
 use std::sync::{Arc, Mutex};
-use esp_idf_svc::hal::i2c::I2cDriver;
+use esp_idf_svc::hal::{delay::BLOCK, i2c::I2cDriver};
 use log;
+
+pub fn read_registers_16bit_address(i2c: &Arc<Mutex<I2cDriver>>, i2c_device: u8, address: u16, register_count: usize) {
+    let mut i2c = i2c.lock().expect("Failed to lock I2C driver");
+    let mut register_values = Vec::with_capacity(register_count*4);
+    i2c.write_read(i2c_device, &address.to_be_bytes(), &mut register_values, BLOCK).unwrap();
+    println!("{:?}", register_values);
+}
 
 pub struct I2CDevice {
     address: u8,
