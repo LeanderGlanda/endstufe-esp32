@@ -1,7 +1,7 @@
 /*
  * File:           C:\Users\Leander\Documents\Hardware\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1_REG.h
  *
- * Created:        Wednesday, February 26, 2025 10:02:36 PM
+ * Created:        Friday, April 18, 2025 1:10:21 PM
  * Description:    TestDesigndspproj:IC 1 control register definitions.
  *
  * This software is distributed in the hope that it will be useful,

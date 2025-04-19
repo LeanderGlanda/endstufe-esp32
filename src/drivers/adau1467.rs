@@ -114,7 +114,7 @@ impl<'a> ADAU1467<'a> {
     }
 
     pub fn set_subwoofer_gain(&self, target_gain_db: f32) -> Result<(), anyhow::Error> {
-        const CROSSOVER_LOWPASS_FILTER1_BASE_ADDR: u16 = 38;
+        const CROSSOVER_LOWPASS_FILTER1_BASE_ADDR: u16 = 42;
 
         let coeffs = LinkwitzRileyCoeffs::new(192000.0, 100.0, target_gain_db as f64);
 
