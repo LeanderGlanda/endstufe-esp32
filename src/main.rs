@@ -28,15 +28,12 @@ use rtp_rs::RtpReader;
 mod drivers;
 mod i2c_helper;
 mod api;
-mod control;
 mod web;
 mod sigmastudio;
 mod hardware_init;
 mod linkwitz_riley_coeffs;
 
-use crate::api::commands::SystemCommand;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
-use control::handle_command;
 
 const HARDWARE_CONNECTED: bool = true;
 
@@ -68,7 +65,11 @@ fn main() -> anyhow::Result<()> {
         log::info!("Hardware init complete");
     }
     
-    // web::handler::setup_webserver(peripherals.modem, sys_loop, nvs)?;
+    let web_server = web::server::start_server(peripherals.modem, sys_loop, nvs)?;
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+    }
 
     Ok(())
 }

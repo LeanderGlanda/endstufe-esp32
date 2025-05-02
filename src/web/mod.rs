@@ -1,2 +1,2 @@
-pub mod handler;
 pub mod wifi;
+pub mod server;
