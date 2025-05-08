@@ -1,6 +1,6 @@
 use anyhow::Ok;
-use embedded_svc::http::{Method};
-use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, nvs::EspDefaultNvsPartition, sys::EspError, wifi::{BlockingWifi, EspWifi}};
+use embedded_svc::http::{Headers, Method};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, io::{Read, Write}, nvs::EspDefaultNvsPartition, sys::EspError, wifi::{BlockingWifi, EspWifi}};
 use esp_idf_svc::hal::{modem::Modem, prelude::Peripherals};
 use log::*;
 use serde::Deserialize;
@@ -37,9 +37,18 @@ fn create_server() -> Result<EspHttpServer<'static>, anyhow::Error> {
 /// Mountet alle API-Routen auf dem HTTP-Server
 pub fn mount_routes(server: &mut EspHttpServer) -> Result<(), anyhow::Error> {
     server.fn_handler("/api", Method::Post, |mut req| {
-        // 1) Body auslesen
-        let mut buf = Vec::new();
-        req.read(&mut buf)?;
+        log::info!("Incoming request");
+
+        let len = req.content_len().unwrap_or(0) as usize;
+        if len > MAX_LEN {
+            req.into_status_response(413)?
+                .write_all("Request too big".as_bytes())?;
+            return Ok(());
+        }
+
+        let mut buf = vec![0; len];
+        req.read_exact(&mut buf)?;
+        
         // 2) JSON -> Command
         let cmd: Command = serde_json::from_slice(&buf)
             .map_err(|e| anyhow::anyhow!(e))?;

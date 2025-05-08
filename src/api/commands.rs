@@ -24,6 +24,7 @@ impl Command {
         match self {
             Command::SetVolume { level } if level <= 100 => {
                 // set_volume(level);
+                log::info!("SetVolume called");
                 Response::Ok
             }
             Command::SetVolume { level } => Response::Err {
@@ -31,10 +32,12 @@ impl Command {
             },
             Command::Mute => {
                 // mute();
+                log::info!("Mute called");
                 Response::Ok
             }
             Command::Unmute => {
                 // unmute();
+                log::info!("Unmute called");
                 Response::Ok
             }
         }
