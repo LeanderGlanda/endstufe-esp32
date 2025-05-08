@@ -1,4 +1,4 @@
-use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi, ScanMethod}};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N}, wifi::{BlockingWifi, EspWifi, ScanMethod}};
 
 
 const SSID: &str = "Leander";
@@ -19,6 +19,19 @@ pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvs
             ..Default::default()
         },
     ))?;
+
+    unsafe {
+        // Only enable 802.11b, g and n on the STA interface
+        use esp_idf_svc::sys::*;
+        esp_wifi_set_protocol(
+            wifi_interface_t_WIFI_IF_STA,
+            (WIFI_PROTOCOL_11B
+            | WIFI_PROTOCOL_11G
+            | WIFI_PROTOCOL_11N).try_into().unwrap(),
+        );
+        // Disable power‑save so the AP can’t sleep you out mid‑handshake
+        esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE);
+    }
 
     wifi.start()?;
     wifi.connect()?;
