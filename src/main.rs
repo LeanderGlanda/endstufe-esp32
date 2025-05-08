@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 use drivers::{adau1467, adau1962a, tpa3116d2};
 use embedded_svc::http::Headers;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
+use esp_idf_svc::log::EspLogger;
+use esp_idf_svc::netif::EspNetif;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
 use esp_idf_svc::hal::i2s::I2sDriver;
@@ -65,7 +67,9 @@ fn main() -> anyhow::Result<()> {
         log::info!("Hardware init complete");
     }
     
-    let web_server = web::server::start_server(peripherals.modem, sys_loop, nvs)?;
+    web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
+    
+    let web_server = web::server::start_server()?;
 
     loop {
         std::thread::sleep(std::time::Duration::from_secs(60));

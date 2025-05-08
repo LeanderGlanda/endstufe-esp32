@@ -8,14 +8,11 @@ use esp_idf_svc::hal::i2s;
 
 use crate::api::commands::Command;
 
-const SSID: &str = "Leander";
-// const PASSWORD: &str = env!("WIFI_PASSWORD");
-const PASSWORD: &str = "Leander999";
 const INDEX_HTML: &str = include_str!("http_server_page.html");
 const MAX_LEN: usize = 128;
 const STACK_SIZE: usize = 10240;
 
-pub fn start_server(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> Result<EspHttpServer<'static>, anyhow::Error> {
+pub fn start_server() -> Result<EspHttpServer<'static>, anyhow::Error> {
     info!("Setting up webserver");
 
     let mut server = create_server()?;
