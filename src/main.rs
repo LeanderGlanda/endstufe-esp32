@@ -38,6 +38,7 @@ mod linkwitz_riley_coeffs;
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
 
 const HARDWARE_CONNECTED: bool = true;
+const ENABLE_WEB: bool = false;
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -66,14 +67,17 @@ fn main() -> anyhow::Result<()> {
 
         log::info!("Hardware init complete");
     }
-    
-    web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
-    
-    let web_server = web::server::start_server()?;
 
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(60));
+    if ENABLE_WEB {
+        web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
+    
+        let web_server = web::server::start_server()?;
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
     }
+    
 
     Ok(())
 }
