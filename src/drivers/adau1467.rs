@@ -114,14 +114,17 @@ impl<'a> ADAU1467<'a> {
     }
 
     pub fn set_subwoofer_gain(&self, target_gain_db: f32) -> Result<(), anyhow::Error> {
-        const CROSSOVER_LOWPASS_FILTER1_BASE_ADDR: u16 = 42;
+        // Make sure to write new filter coeffs to both crossover filters, as there is one for each channel
+        const CROSSOVER1_LOWPASS_FILTER1_BASE_ADDR: u16 = 42;
+        const CROSSOVER2_LOWPASS_FILTER1_BASE_ADDR: u16 = 52;
 
         let coeffs = LinkwitzRileyCoeffs::new(192000.0, 100.0, target_gain_db as f64);
 
         log::debug!("Filter coefficients: {:?}", coeffs);
 
-        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER_LOWPASS_FILTER1_BASE_ADDR, true)?;
-        
+        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER1_LOWPASS_FILTER1_BASE_ADDR, true)?;
+        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER2_LOWPASS_FILTER1_BASE_ADDR, true)?;
+
         Ok(())
     }
 
