@@ -1,4 +1,4 @@
-use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N}, wifi::{BlockingWifi, EspWifi, ScanMethod}};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N}, wifi::{BlockingWifi, EspWifi, PmfConfiguration, ScanMethod, ScanSortMethod}};
 
 
 const SSID: &str = "Wollersberger";
@@ -15,13 +15,17 @@ pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvs
             ssid: SSID.try_into().unwrap(),
             password: PASSWORD.try_into().unwrap(),
             scan_method: ScanMethod::FastScan,
+            pmf_cfg: PmfConfiguration::Capable { required: (false) },
             // You might add other fields as needed.
             ..Default::default()
         },
     ))?;
 
+    wifi.start()?;
+
     unsafe {
         // Only enable 802.11b, g and n on the STA interface
+        // 802.11ax makes problems
         use esp_idf_svc::sys::*;
         esp_wifi_set_protocol(
             wifi_interface_t_WIFI_IF_STA,
@@ -29,11 +33,12 @@ pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvs
             | WIFI_PROTOCOL_11G
             | WIFI_PROTOCOL_11N).try_into().unwrap(),
         );
+
         // Disable power‑save so the AP can’t sleep you out mid‑handshake
-        esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE);
+        // Does not seem to be required, so commented out for now
+        // esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE);
     }
 
-    wifi.start()?;
     wifi.connect()?;
     wifi.wait_netif_up()?;
 
