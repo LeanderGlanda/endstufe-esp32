@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
+
+use crate::hardware_context::{self, HardwareContext};
 
 /// Kommando-Typen, alle über /api empfangenen Requests
 #[derive(Deserialize)]
@@ -20,7 +24,7 @@ pub enum Response {
 
 impl Command {
     /// Verarbeite das Kommando und gib eine Antwort zurück
-    pub fn handle(self) -> Response {
+    pub fn handle(self, hardware_context: &Arc<HardwareContext<'_>>) -> Response {
         match self {
             Command::SetVolume { level } if level <= 100 => {
                 // set_volume(level);
@@ -33,11 +37,13 @@ impl Command {
             Command::Mute => {
                 // mute();
                 log::info!("Mute called");
+                hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver").mute_speaker_outputs(true);
                 Response::Ok
             }
             Command::Unmute => {
                 // unmute();
                 log::info!("Unmute called");
+                hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver").mute_speaker_outputs(false);
                 Response::Ok
             }
         }

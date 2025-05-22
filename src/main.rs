@@ -34,11 +34,12 @@ mod web;
 mod sigmastudio;
 mod hardware_init;
 mod linkwitz_riley_coeffs;
+mod hardware_context;
 
 use crate::drivers::{pcm1865::{self, PCM1865}, adau1467::ADAU1467, adau1962a::ADAU1962A, tpa3116d2::TPA3116D2};
 
 const HARDWARE_CONNECTED: bool = true;
-const ENABLE_WEB: bool = false;
+const ENABLE_WEB: bool = true;
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -62,8 +63,10 @@ fn main() -> anyhow::Result<()> {
 
     let shared_i2c = Arc::new(Mutex::new(i2c));
 
+    let hardware_context = Arc::new(hardware_context::HardwareContext::new(shared_i2c));
+
     if HARDWARE_CONNECTED {
-        hardware_init::hardware_init(&shared_i2c)?;
+        hardware_init::hardware_init(hardware_context.clone())?;
 
         log::info!("Hardware init complete");
     }
@@ -71,7 +74,7 @@ fn main() -> anyhow::Result<()> {
     if ENABLE_WEB {
         web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
     
-        let web_server = web::server::start_server()?;
+        let web_server = web::server::start_server(hardware_context)?;
 
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));

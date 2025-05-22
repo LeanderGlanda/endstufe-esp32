@@ -1,7 +1,7 @@
 use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N}, wifi::{BlockingWifi, EspWifi, ScanMethod}};
 
 
-const SSID: &str = "Leander";
+const SSID: &str = "Wollersberger";
 const PASSWORD: &str = env!("WIFI_PASSWORD");
 
 pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> anyhow::Result<()> {

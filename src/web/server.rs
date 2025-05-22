@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Ok;
 use embedded_svc::http::{Headers, Method};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, io::{Read, Write}, nvs::EspDefaultNvsPartition, sys::EspError, wifi::{BlockingWifi, EspWifi}};
@@ -6,18 +8,18 @@ use log::*;
 use serde::Deserialize;
 use esp_idf_svc::hal::i2s;
 
-use crate::api::commands::Command;
+use crate::{api::commands::Command, hardware_context::HardwareContext};
 
 const INDEX_HTML: &str = include_str!("http_server_page.html");
 const MAX_LEN: usize = 128;
 const STACK_SIZE: usize = 10240;
 
-pub fn start_server() -> Result<EspHttpServer<'static>, anyhow::Error> {
+pub fn start_server(hardware_context: Arc<HardwareContext<'static>>) -> Result<EspHttpServer<'static>, anyhow::Error> {
     info!("Setting up webserver");
 
     let mut server = create_server()?;
 
-    mount_routes(&mut server)?;
+    mount_routes(&mut server, hardware_context)?;
 
     Ok(server)
 }
@@ -35,8 +37,11 @@ fn create_server() -> Result<EspHttpServer<'static>, anyhow::Error> {
 
 
 /// Mountet alle API-Routen auf dem HTTP-Server
-pub fn mount_routes(server: &mut EspHttpServer) -> Result<(), anyhow::Error> {
-    server.fn_handler("/api", Method::Post, |mut req| {
+pub fn mount_routes(server: &mut EspHttpServer, hardware_context: Arc<HardwareContext<'static>>) -> Result<(), anyhow::Error> {
+
+    let hardware_context_clone = Arc::clone(&hardware_context);
+
+    server.fn_handler("/api", Method::Post, move |mut req| {
         log::info!("Incoming request");
 
         let len = req.content_len().unwrap_or(0) as usize;
@@ -53,7 +58,7 @@ pub fn mount_routes(server: &mut EspHttpServer) -> Result<(), anyhow::Error> {
         let cmd: Command = serde_json::from_slice(&buf)
             .map_err(|e| anyhow::anyhow!(e))?;
         // 3) Command verarbeiten
-        let resp = cmd.handle();
+        let resp = cmd.handle(&hardware_context_clone);
         // 4) Response -> JSON
         let body = serde_json::to_vec(&resp)?;
         // 5) Antwort senden

@@ -2,23 +2,21 @@ use std::sync::{Arc, Mutex};
 
 use esp_idf_svc::hal::i2c::I2cDriver;
 
-use crate::drivers::{adau1467::ADAU1467, adau1962a::{self, ADAU1962A}, pcm1865::{self, PCM1865}, tpa3116d2::TPA3116D2};
+use crate::{drivers::{adau1467::ADAU1467, adau1962a::{self, ADAU1962A}, pcm1865::{self, PCM1865}, tpa3116d2::TPA3116D2}, hardware_context::{self, HardwareContext}};
 
 
-pub fn hardware_init(shared_i2c: &Arc<Mutex<I2cDriver>>) -> anyhow::Result<()> {  
+pub fn hardware_init(hardware_context: Arc<HardwareContext<'_>>) -> anyhow::Result<()> {  
 
-    setup_pcm1865(shared_i2c.clone())?;
-    setup_adau1962a(shared_i2c.clone())?;
-    setup_adau1467(shared_i2c.clone())?;
-    setup_tpa3116d2(shared_i2c.clone())?;
+    setup_pcm1865(&mut hardware_context.pcm1865.lock().expect("Could not lock PCM1865 driver"))?;
+    setup_adau1962a(&mut hardware_context.adau1962a.lock().expect("Could not lock ADAU1962a driver"))?;
+    setup_adau1467(&mut hardware_context.adau1467.lock().expect("Could not lock ADAU1467 driver"))?;
+    setup_tpa3116d2(&mut hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver"))?;
 
     Ok(())
 }
 
-fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+fn setup_pcm1865(pcm1865: &mut PCM1865) -> Result<(), anyhow::Error> {
     log::info!("Setting up PCM1865");
-
-    let mut pcm1865 = PCM1865::new(i2c, 0x4a);
 
     pcm1865.set_sck_xtal_selection(pcm1865::SckXtalSelection::Xtal)?;
     pcm1865.select_mode(true)?;
@@ -28,10 +26,8 @@ fn setup_pcm1865(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+fn setup_adau1962a(adau1962a: &mut ADAU1962A) -> Result<(), anyhow::Error> {
     log::info!("Setting up ADAU1962a");
-
-    let mut adau1962a = ADAU1962A::new(i2c, 0x04);
 
     adau1962a.set_reset(true)?;
     adau1962a.master_power_up(true)?;
@@ -48,10 +44,8 @@ fn setup_adau1962a(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn setup_adau1467(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+fn setup_adau1467(adau1467: &mut ADAU1467) -> Result<(), anyhow::Error> {
     log::info!("Setting up ADAU1467");
-
-    let mut adau1467 = ADAU1467::new(i2c, 0x38);
 
     adau1467.set_reset(true)?;
     adau1467.load_dsp_program()?;
@@ -60,10 +54,8 @@ fn setup_adau1467(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn setup_tpa3116d2(i2c: Arc<Mutex<I2cDriver>>) -> Result<(), anyhow::Error> {
+fn setup_tpa3116d2(tpa3116d2: &mut TPA3116D2) -> Result<(), anyhow::Error> {
     log::info!("Setting up TPA3116D2");
-
-    let mut tpa3116d2 = TPA3116D2::new(i2c);
 
     tpa3116d2.enable_speaker_outputs(true)?;
 
