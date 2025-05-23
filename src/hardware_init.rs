@@ -39,6 +39,7 @@ fn setup_adau1962a(adau1962a: &mut ADAU1962A) -> Result<(), anyhow::Error> {
     adau1962a.set_sample_rate_selection(adau1962a::SampleRate::FS192)?;
     adau1962a.set_dlrclk_polarity(false)?;
     adau1962a.set_serial_interface_master(true)?;
+    adau1962a.set_master_volume(66)?;
     adau1962a.set_master_mute(false)?;
 
     Ok(())

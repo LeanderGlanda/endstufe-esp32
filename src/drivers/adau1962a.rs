@@ -81,6 +81,13 @@ impl<'a> ADAU1962A<'a> {
         self.set_bits(0x07, 0b00000001, if is_master {0x1} else {0x0})
     }
 
+    pub fn set_master_volume(&mut self, volume: u8) -> Result<(), anyhow::Error> {
+        let clamped = volume.min(100);
+        let max_step: u16 = 120; // 85 steps = 31.875 dB range
+        let vol_scaled = (max_step - (clamped as u16 * max_step) / 100) as u8;
+        self.set_bits(0x0B, 0xFF, vol_scaled)
+    }
+
 }
 
 #[derive(Clone, Copy)]

@@ -27,8 +27,8 @@ impl Command {
     pub fn handle(self, hardware_context: &Arc<HardwareContext<'_>>) -> Response {
         match self {
             Command::SetVolume { level } if level <= 100 => {
-                // set_volume(level);
                 log::info!("SetVolume called");
+                hardware_context.adau1962a.lock().expect("Could not lock ADAU1962a driver").set_master_volume(level);
                 Response::Ok
             }
             Command::SetVolume { level } => Response::Err {
