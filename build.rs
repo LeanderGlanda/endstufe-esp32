@@ -1,34 +1,42 @@
-use std::env;
+use std::{env, fs};
 use std::path::{Path, PathBuf};
 
 fn build_sigmastudio_code() {
+    let target = env::var("TARGET").unwrap();
+
+    // Try to detect ESP-IDF toolchain via IDF_PATH or fallback
+    let compiler = if let Ok(compiler) = env::var("CC") {
+        compiler
+    } else  {
+        // Try to guess toolchain path from IDF_PATH and target
+        let toolchain = if target.starts_with("xtensa-esp32") {
+            "xtensa-esp32-elf-gcc"
+        } else if target.starts_with("riscv32imc-esp-espidf") {
+            "riscv32-esp-elf-gcc"
+        } else {
+            panic!("Unsupported target: {}", target);
+        };
+
+        // Try to find the toolchain in $PATH (assumes idf-env is activated)
+        which::which(toolchain)
+            .unwrap_or_else(|_| PathBuf::from(toolchain))
+            .to_str()
+            .unwrap()
+            .to_owned()
+    };
+
     let mut build = cc::Build::new();
 
-    let esp_install_dir = embuild::espidf::sysenv::idf_path().unwrap();
-
-    let esp_install_path = Path::new(&esp_install_dir);
-
-    let toolchain_bin = esp_install_path.join("../../tools/riscv32-esp-elf/esp-13.2.0_20230928/riscv32-esp-elf/bin");
-    let compiler = toolchain_bin.join("riscv32-esp-elf-gcc");
-
-    build.compiler(compiler);
-
-    // Füge die C-Dateien hinzu
     build.file("src/sigmastudio/ADAU1467.c");
     build.file("src/sigmastudio/SigmaStudioFW.c");
 
-    // Optionale Compiler-Flags
-    build.flag("-Wno-unused-parameter");
+    build.compiler(compiler);
 
-    let include_dir = esp_install_path.join("esp-idf/components");
-    build.include(&include_dir);
+    build.flag("-Wno-unused-parameter");
+    build.flag("-mlongcalls");
 
     // Kompiliere die C-Dateien
     build.compile("sigmastudio");
-
-    // Stelle sicher, dass das Header-Verzeichnis gefunden wird
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    println!("cargo:include={}", out_dir.display());
 }
 
 fn main() {
@@ -37,5 +45,6 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/sigmastudio/ADAU1467.c");
     println!("cargo:rerun-if-changed=src/sigmastudio/systemfiles_IC_1.h");
+
     build_sigmastudio_code();
 }
