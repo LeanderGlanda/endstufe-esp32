@@ -14,8 +14,8 @@ pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvs
         embedded_svc::wifi::ClientConfiguration {
             ssid: SSID.try_into().unwrap(),
             password: PASSWORD.try_into().unwrap(),
-            scan_method: ScanMethod::FastScan,
-            pmf_cfg: PmfConfiguration::Capable { required: (false) },
+            scan_method: ScanMethod::CompleteScan(ScanSortMethod::Signal),
+            pmf_cfg: PmfConfiguration::new_pmf_optional(),
             // You might add other fields as needed.
             ..Default::default()
         },
