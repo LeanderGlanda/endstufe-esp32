@@ -1,5 +1,5 @@
-use std::{env, fs};
-use std::path::{Path, PathBuf};
+use std::env;
+use std::path::PathBuf;
 
 fn build_sigmastudio_code() {
     let target = env::var("TARGET").unwrap();
