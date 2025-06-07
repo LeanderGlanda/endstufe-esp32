@@ -7,7 +7,7 @@ const PASSWORD: &str = env!("WIFI_PASSWORD");
 pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> anyhow::Result<BlockingWifi<EspWifi<'static>>> {
     // Create and configure WiFi (using blocking APIs)
     let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(modem, sys_loop.clone(), None)?,
+        EspWifi::new(modem, sys_loop.clone(), Some(nvs))?,
         sys_loop.clone(),
     )?;
     wifi.set_configuration(&embedded_svc::wifi::Configuration::Client(
@@ -15,7 +15,7 @@ pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvs
             ssid: SSID.try_into().unwrap(),
             password: PASSWORD.try_into().unwrap(),
             scan_method: ScanMethod::CompleteScan(ScanSortMethod::Signal),
-            pmf_cfg: PmfConfiguration::NotCapable,
+            pmf_cfg: PmfConfiguration::new_pmf_optional(),
             // You might add other fields as needed.
             ..Default::default()
         },
@@ -66,6 +66,6 @@ fn set_wifi_protocols() {
 
         // Disable power‑save so the AP can’t sleep you out mid‑handshake
         // Does not seem to be required, so commented out for now
-        esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE);
+        // esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_NONE);
     }
 }
