@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if ENABLE_WEB {
-        web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
+        let wifi = web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
     
         let web_server = web::server::start_server(hardware_context)?;
 

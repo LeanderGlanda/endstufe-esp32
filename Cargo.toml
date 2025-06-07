@@ -38,4 +38,8 @@ embuild = { version = "0.33.0", features = ["espidf"] }
 cc = "=1.1.30" # Necessary until a new version of `esp-idf-sys` is released
 which = "7"
 
-
+[patch.crates-io]
+esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf-svc" }
+esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
+cmake = { git = "https://github.com/ivmarkov/cmake-rs" }
