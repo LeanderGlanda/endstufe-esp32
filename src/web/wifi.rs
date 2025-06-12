@@ -1,10 +1,19 @@
-use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::modem::Modem, nvs::EspDefaultNvsPartition, sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N}, wifi::{BlockingWifi, EspWifi, PmfConfiguration, ScanMethod, ScanSortMethod}};
-
+use esp_idf_svc::{
+    eventloop::EspSystemEventLoop,
+    hal::modem::Modem,
+    nvs::EspDefaultNvsPartition,
+    sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N},
+    wifi::{BlockingWifi, EspWifi, PmfConfiguration, ScanMethod, ScanSortMethod},
+};
 
 const SSID: &str = "Wollersberger";
 const PASSWORD: &str = env!("WIFI_PASSWORD");
 
-pub fn setup_wifi(modem: Modem, sys_loop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> anyhow::Result<BlockingWifi<EspWifi<'static>>> {
+pub fn setup_wifi(
+    modem: Modem,
+    sys_loop: EspSystemEventLoop,
+    nvs: EspDefaultNvsPartition,
+) -> anyhow::Result<BlockingWifi<EspWifi<'static>>> {
     // Create and configure WiFi (using blocking APIs)
     let mut wifi = BlockingWifi::wrap(
         EspWifi::new(modem, sys_loop.clone(), Some(nvs))?,
@@ -59,9 +68,9 @@ fn set_wifi_protocols() {
         use esp_idf_svc::sys::*;
         esp_wifi_set_protocol(
             wifi_interface_t_WIFI_IF_STA,
-            (WIFI_PROTOCOL_11B
-            | WIFI_PROTOCOL_11G
-            | WIFI_PROTOCOL_11N).try_into().unwrap(),
+            (WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N)
+                .try_into()
+                .unwrap(),
         );
 
         // Disable power‑save so the AP can’t sleep you out mid‑handshake

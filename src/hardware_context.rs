@@ -2,7 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use esp_idf_svc::hal::i2c::I2cDriver;
 
-use crate::drivers::{adau1467::ADAU1467, adau1962a::{self, ADAU1962A}, pcm1865::{self, PCM1865}, tpa3116d2::TPA3116D2};
+use crate::drivers::{
+    adau1467::ADAU1467,
+    adau1962a::{self, ADAU1962A},
+    pcm1865::{self, PCM1865},
+    tpa3116d2::TPA3116D2,
+};
 
 pub struct HardwareContext<'a> {
     pub i2c: Arc<Mutex<I2cDriver<'a>>>,
@@ -21,7 +26,11 @@ impl<'a> HardwareContext<'a> {
         let mut tpa3116d2 = Mutex::new(TPA3116D2::new(i2c.clone()));
 
         HardwareContext {
-            i2c, pcm1865, adau1467, adau1962a, tpa3116d2
+            i2c,
+            pcm1865,
+            adau1467,
+            adau1962a,
+            tpa3116d2,
         }
     }
 }

@@ -1,7 +1,11 @@
-use std::{f64::consts::PI, sync::{Arc, Mutex}, time::Duration};
+use std::{
+    f64::consts::PI,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use esp_idf_svc::hal::i2c::I2cDriver;
 use esp_idf_svc::hal::delay::BLOCK;
+use esp_idf_svc::hal::i2c::I2cDriver;
 
 use anyhow::{Error, Result};
 
@@ -19,14 +23,19 @@ impl<'a> ADAU1467<'a> {
     fn set_bits(&self, register: u16, mask: u16, value: u16) -> Result<()> {
         log::info!("Settings bits");
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
-        
+
         // Step 1: Read the current value of the register
         let mut current_value = [0u8; 2];
-        i2c.write_read(self.address, &register.to_le_bytes(), &mut current_value, BLOCK)?;
-        
+        i2c.write_read(
+            self.address,
+            &register.to_le_bytes(),
+            &mut current_value,
+            BLOCK,
+        )?;
+
         // Step 2: Modify the specific bits
         let new_value = (u16::from_le_bytes(current_value) & !mask) | (value & mask);
-        
+
         let mut data_to_write = Vec::with_capacity(4);
         data_to_write.extend_from_slice(&register.to_le_bytes());
         data_to_write.extend_from_slice(&new_value.to_le_bytes());
@@ -59,9 +68,14 @@ impl<'a> ADAU1467<'a> {
 
     pub fn read_second_page_select_reg(&self) -> Result<(), anyhow::Error> {
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
-    
+
         let mut current_value = [0u8; 2];
-        i2c.write_read(self.address, &(0xF899 as u16).to_le_bytes(), &mut current_value, BLOCK)?;
+        i2c.write_read(
+            self.address,
+            &(0xF899 as u16).to_le_bytes(),
+            &mut current_value,
+            BLOCK,
+        )?;
 
         log::info!("Second page select: {:?}", current_value);
 
@@ -74,7 +88,12 @@ impl<'a> ADAU1467<'a> {
         Ok(())
     }
 
-    pub fn safeload_write(&self, data: &[u32], reg_addr: u16, lowerpage: bool) -> Result<(), anyhow::Error> {
+    pub fn safeload_write(
+        &self,
+        data: &[u32],
+        reg_addr: u16,
+        lowerpage: bool,
+    ) -> Result<(), anyhow::Error> {
         if data.len() > 5 {
             return Err(anyhow::anyhow!("Data slice must not exceed 5 elements"));
         }
@@ -83,7 +102,7 @@ impl<'a> ADAU1467<'a> {
 
         // Safeload address 0x6000
         buf.extend_from_slice(&[0x60, 0x00]);
-        
+
         // Add the 5 data words (pad with zeros if needed)
         for i in 0..5 {
             let word = data.get(i).copied().unwrap_or(0);
@@ -100,14 +119,12 @@ impl<'a> ADAU1467<'a> {
 
         // Safeload lower/upper page setting / words to write
         buf.extend_from_slice(&(data.len() as u32).to_be_bytes());
-        
+
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
         i2c.write(self.address, &buf, BLOCK)?;
 
         Ok(())
     }
-
-    
 
     fn float_to_fixed_8_24(value: f32) -> u32 {
         (value * (1 << 23) as f32) as u32
@@ -122,10 +139,17 @@ impl<'a> ADAU1467<'a> {
 
         log::debug!("Filter coefficients: {:?}", coeffs);
 
-        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER1_LOWPASS_FILTER1_BASE_ADDR, true)?;
-        self.safeload_write(&coeffs.lowpass_filter1.to_fixed(), CROSSOVER2_LOWPASS_FILTER1_BASE_ADDR, true)?;
+        self.safeload_write(
+            &coeffs.lowpass_filter1.to_fixed(),
+            CROSSOVER1_LOWPASS_FILTER1_BASE_ADDR,
+            true,
+        )?;
+        self.safeload_write(
+            &coeffs.lowpass_filter1.to_fixed(),
+            CROSSOVER2_LOWPASS_FILTER1_BASE_ADDR,
+            true,
+        )?;
 
         Ok(())
     }
-
 }

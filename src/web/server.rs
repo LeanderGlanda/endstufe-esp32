@@ -2,11 +2,18 @@ use std::sync::Arc;
 
 use anyhow::Ok;
 use embedded_svc::http::{Headers, Method};
-use esp_idf_svc::{eventloop::EspSystemEventLoop, http::server::EspHttpServer, io::{Read, Write}, nvs::EspDefaultNvsPartition, sys::EspError, wifi::{BlockingWifi, EspWifi}};
+use esp_idf_svc::hal::i2s;
 use esp_idf_svc::hal::{modem::Modem, prelude::Peripherals};
+use esp_idf_svc::{
+    eventloop::EspSystemEventLoop,
+    http::server::EspHttpServer,
+    io::{Read, Write},
+    nvs::EspDefaultNvsPartition,
+    sys::EspError,
+    wifi::{BlockingWifi, EspWifi},
+};
 use log::*;
 use serde::Deserialize;
-use esp_idf_svc::hal::i2s;
 
 use crate::{api::commands::Command, hardware_context::HardwareContext};
 
@@ -14,7 +21,9 @@ const INDEX_HTML: &str = include_str!("http_server_page.html");
 const MAX_LEN: usize = 128;
 const STACK_SIZE: usize = 10240;
 
-pub fn start_server(hardware_context: Arc<HardwareContext<'static>>) -> Result<EspHttpServer<'static>, anyhow::Error> {
+pub fn start_server(
+    hardware_context: Arc<HardwareContext<'static>>,
+) -> Result<EspHttpServer<'static>, anyhow::Error> {
     info!("Setting up webserver");
 
     let mut server = create_server()?;
@@ -35,10 +44,11 @@ fn create_server() -> Result<EspHttpServer<'static>, anyhow::Error> {
     Ok(server)
 }
 
-
 /// Mountet alle API-Routen auf dem HTTP-Server
-pub fn mount_routes(server: &mut EspHttpServer, hardware_context: Arc<HardwareContext<'static>>) -> Result<(), anyhow::Error> {
-
+pub fn mount_routes(
+    server: &mut EspHttpServer,
+    hardware_context: Arc<HardwareContext<'static>>,
+) -> Result<(), anyhow::Error> {
     let hardware_context_clone = Arc::clone(&hardware_context);
 
     server.fn_handler("/api", Method::Post, move |mut req| {
@@ -53,10 +63,9 @@ pub fn mount_routes(server: &mut EspHttpServer, hardware_context: Arc<HardwareCo
 
         let mut buf = vec![0; len];
         req.read_exact(&mut buf)?;
-        
+
         // 2) JSON -> Command
-        let cmd: Command = serde_json::from_slice(&buf)
-            .map_err(|e| anyhow::anyhow!(e))?;
+        let cmd: Command = serde_json::from_slice(&buf).map_err(|e| anyhow::anyhow!(e))?;
         // 3) Command verarbeiten
         let resp = cmd.handle(&hardware_context_clone);
         // 4) Response -> JSON

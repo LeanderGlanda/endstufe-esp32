@@ -28,7 +28,11 @@ impl Command {
         match self {
             Command::SetVolume { level } if level <= 100 => {
                 log::info!("SetVolume called");
-                hardware_context.adau1962a.lock().expect("Could not lock ADAU1962a driver").set_master_volume(level);
+                hardware_context
+                    .adau1962a
+                    .lock()
+                    .expect("Could not lock ADAU1962a driver")
+                    .set_master_volume(level);
                 Response::Ok
             }
             Command::SetVolume { level } => Response::Err {
@@ -37,13 +41,21 @@ impl Command {
             Command::Mute => {
                 // mute();
                 log::info!("Mute called");
-                hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver").mute_speaker_outputs(true);
+                hardware_context
+                    .tpa3116d2
+                    .lock()
+                    .expect("Could not lock TPA3116d2 driver")
+                    .mute_speaker_outputs(true);
                 Response::Ok
             }
             Command::Unmute => {
                 // unmute();
                 log::info!("Unmute called");
-                hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver").mute_speaker_outputs(false);
+                hardware_context
+                    .tpa3116d2
+                    .lock()
+                    .expect("Could not lock TPA3116d2 driver")
+                    .mute_speaker_outputs(false);
                 Response::Ok
             }
         }

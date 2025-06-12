@@ -7,7 +7,7 @@ fn build_sigmastudio_code() {
     // Try to detect ESP-IDF toolchain via IDF_PATH or fallback
     let compiler = if let Ok(compiler) = env::var("CC") {
         compiler
-    } else  {
+    } else {
         // Try to guess toolchain path from IDF_PATH and target
         let toolchain = if target.starts_with("xtensa-esp32") {
             "xtensa-esp32-elf-gcc"

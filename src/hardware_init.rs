@@ -2,15 +2,41 @@ use std::sync::{Arc, Mutex};
 
 use esp_idf_svc::hal::i2c::I2cDriver;
 
-use crate::{drivers::{adau1467::ADAU1467, adau1962a::{self, ADAU1962A}, pcm1865::{self, PCM1865}, tpa3116d2::TPA3116D2}, hardware_context::{self, HardwareContext}};
+use crate::{
+    drivers::{
+        adau1467::ADAU1467,
+        adau1962a::{self, ADAU1962A},
+        pcm1865::{self, PCM1865},
+        tpa3116d2::TPA3116D2,
+    },
+    hardware_context::{self, HardwareContext},
+};
 
-
-pub fn hardware_init(hardware_context: Arc<HardwareContext<'_>>) -> anyhow::Result<()> {  
-
-    setup_pcm1865(&mut hardware_context.pcm1865.lock().expect("Could not lock PCM1865 driver"))?;
-    setup_adau1962a(&mut hardware_context.adau1962a.lock().expect("Could not lock ADAU1962a driver"))?;
-    setup_adau1467(&mut hardware_context.adau1467.lock().expect("Could not lock ADAU1467 driver"))?;
-    setup_tpa3116d2(&mut hardware_context.tpa3116d2.lock().expect("Could not lock TPA3116d2 driver"))?;
+pub fn hardware_init(hardware_context: Arc<HardwareContext<'_>>) -> anyhow::Result<()> {
+    setup_pcm1865(
+        &mut hardware_context
+            .pcm1865
+            .lock()
+            .expect("Could not lock PCM1865 driver"),
+    )?;
+    setup_adau1962a(
+        &mut hardware_context
+            .adau1962a
+            .lock()
+            .expect("Could not lock ADAU1962a driver"),
+    )?;
+    setup_adau1467(
+        &mut hardware_context
+            .adau1467
+            .lock()
+            .expect("Could not lock ADAU1467 driver"),
+    )?;
+    setup_tpa3116d2(
+        &mut hardware_context
+            .tpa3116d2
+            .lock()
+            .expect("Could not lock TPA3116d2 driver"),
+    )?;
 
     Ok(())
 }

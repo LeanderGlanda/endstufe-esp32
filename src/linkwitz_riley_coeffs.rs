@@ -115,7 +115,7 @@ impl LinkwitzRileyCoeffs {
         // After sign inversion, we have:
         let a1_hp = -a1_lp_std; // same as lowpass inverted value.
         let a2_hp = -a2_lp_std; // same as lowpass inverted value.
-        // In many designs the high-pass section is implemented with unity gain.
+                                // In many designs the high-pass section is implemented with unity gain.
         let highpass_filter1 = SecondOrderCoeffs {
             b: [b0_hp_std, b1_hp_std, b2_hp_std],
             a: [a1_hp, a2_hp],

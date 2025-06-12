@@ -1,4 +1,7 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use esp_idf_svc::hal::{delay::BLOCK, i2c::I2cDriver};
 
@@ -8,7 +11,7 @@ pub struct TPA3116D2<'a> {
 
 impl<'a> TPA3116D2<'a> {
     pub fn new(i2c: Arc<Mutex<I2cDriver<'a>>>) -> Self {
-        TPA3116D2 {i2c}
+        TPA3116D2 { i2c }
     }
 
     #[allow(dead_code)]
@@ -27,5 +30,4 @@ impl<'a> TPA3116D2<'a> {
         std::thread::sleep(Duration::from_millis(1));
         Ok(())
     }
-    
 }

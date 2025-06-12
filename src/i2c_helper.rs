@@ -1,11 +1,22 @@
-use std::sync::{Arc, Mutex};
 use esp_idf_svc::hal::{delay::BLOCK, i2c::I2cDriver};
 use log;
+use std::sync::{Arc, Mutex};
 
-pub fn read_registers_16bit_address(i2c: &Arc<Mutex<I2cDriver>>, i2c_device: u8, address: u16, register_count: usize) {
+pub fn read_registers_16bit_address(
+    i2c: &Arc<Mutex<I2cDriver>>,
+    i2c_device: u8,
+    address: u16,
+    register_count: usize,
+) {
     let mut i2c = i2c.lock().expect("Failed to lock I2C driver");
-    let mut register_values = Vec::with_capacity(register_count*4);
-    i2c.write_read(i2c_device, &address.to_be_bytes(), &mut register_values, BLOCK).unwrap();
+    let mut register_values = Vec::with_capacity(register_count * 4);
+    i2c.write_read(
+        i2c_device,
+        &address.to_be_bytes(),
+        &mut register_values,
+        BLOCK,
+    )
+    .unwrap();
     println!("{:?}", register_values);
 }
 
@@ -21,19 +32,19 @@ pub fn pretty_register_dump(i2c: &Arc<Mutex<I2cDriver>>) {
 
     let i2c_devices = [
         I2CDevice {
-            address: 0x4A,  // PCM1865
+            address: 0x4A, // PCM1865
             start_reg: 0x00,
             end_reg: 0x78,
             reg_size: 1,
         },
         I2CDevice {
-            address: 0x04,  // ADAU1962A
+            address: 0x04, // ADAU1962A
             start_reg: 0x00,
             end_reg: 0x1F,
             reg_size: 1,
         },
         I2CDevice {
-            address: 0x38,  // ADAU1467
+            address: 0x38, // ADAU1467
             start_reg: 0x0000,
             end_reg: 0x0190, // example limit
             reg_size: 2,
@@ -98,7 +109,11 @@ pub fn pretty_register_dump(i2c: &Arc<Mutex<I2cDriver>>) {
                             }
                         }
                         None => {
-                            output.push_str(if device.reg_size == 1 { " --" } else { " --------" });
+                            output.push_str(if device.reg_size == 1 {
+                                " --"
+                            } else {
+                                " --------"
+                            });
                         }
                     }
                 }
