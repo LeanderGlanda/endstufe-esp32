@@ -6,7 +6,7 @@ use esp_idf_svc::{
     wifi::{BlockingWifi, EspWifi, PmfConfiguration, ScanMethod, ScanSortMethod},
 };
 
-const SSID: &str = "Leander";
+const SSID: &str = "Wollersberger";
 const PASSWORD: &str = env!("WIFI_PASSWORD");
 
 pub fn setup_wifi(

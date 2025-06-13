@@ -10,7 +10,7 @@ use std::{io, thread};
 use drivers::{adau1467, adau1962a, tpa3116d2};
 use embedded_svc::http::Headers;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::hal::gpio::{AnyInputPin, AnyOutputPin, PinDriver};
+use esp_idf_svc::hal::gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, InputPin, PinDriver, Pull};
 use esp_idf_svc::hal::gpio::Output;
 use esp_idf_svc::hal::gpio::Input;
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
@@ -82,11 +82,11 @@ fn main() -> anyhow::Result<()> {
     let handle;
 
     if HARDWARE_CONNECTED {
-        // hardware_init::hardware_init(hardware_context.clone())?;
+        hardware_init::hardware_init(hardware_context.clone())?;
 
         handle = std::thread::spawn(|| hardware_control(
-            peripherals.pins.gpio14.into(),
-            peripherals.pins.gpio16.into(),
+            peripherals.pins.gpio35.into(),
+            peripherals.pins.gpio36.into(),
             peripherals.pins.gpio37.into(),
             peripherals.pins.gpio38.into(),
             peripherals.pins.gpio39.into(),
@@ -114,11 +114,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn hardware_control(
-    encoder_pin_a: AnyInputPin,
-    encoder_pin_b: AnyInputPin,
-    button_pin_1: AnyInputPin,
-    button_pin_2: AnyInputPin,
-    button_pin_3: AnyInputPin,
+    encoder_pin_a: AnyIOPin,
+    encoder_pin_b: AnyIOPin,
+    button_pin_1: AnyIOPin,
+    button_pin_2: AnyIOPin,
+    button_pin_3: AnyIOPin,
     led_pin_red: AnyOutputPin,
     led_pin_green: AnyOutputPin,
     led_pin_blue: AnyOutputPin,
@@ -132,6 +132,10 @@ fn hardware_control(
     let mut button_bassboost = PinDriver::input(button_pin_2)?;
     let mut button_standby = PinDriver::input(button_pin_3)?;
 
+    button_mute.set_pull(Pull::Down);
+    button_bassboost.set_pull(Pull::Down);
+    button_standby.set_pull(Pull::Down);
+
     let timer = LedcTimerDriver::new(
             ledc.timer0,
             &TimerConfig::default()
@@ -141,20 +145,26 @@ fn hardware_control(
     let mut green = LedcDriver::new(ledc.channel1, &timer, led_pin_green)?;
     let mut blue = LedcDriver::new(ledc.channel2, &timer, led_pin_blue)?;
 
-    set_rgb(&mut red, &mut green, &mut blue, 255, 100, 255)?;
+    set_rgb(&mut red, &mut green, &mut blue, 0, 100, 0)?;
 
-    let encoder = Encoder::new(pcnt, encoder_pin_a, encoder_pin_b)?;
+    let encoder = Encoder::new(pcnt, encoder_pin_a, encoder_pin_b).unwrap();
 
     let mut last_value = 0i32;
     loop {
         let value = encoder.get_value()?;
         if value != last_value {
-            println!("value: {value}");
+            log::info!("value: {value}");
             last_value = value;
         }
         if button_mute.is_high(){
-            log::info!("high");
+            log::info!("mute high");
 
+        }
+        if button_bassboost.is_high(){
+            log::info!("bassboost high");
+        }
+        if button_standby.is_high(){
+            log::info!("standby high");
         }
         std::thread::sleep(Duration::from_millis(1000));
     }
