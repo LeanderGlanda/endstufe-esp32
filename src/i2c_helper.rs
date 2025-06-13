@@ -2,6 +2,7 @@ use esp_idf_svc::hal::{delay::BLOCK, i2c::I2cDriver};
 use log;
 use std::sync::{Arc, Mutex};
 
+#[allow(unused)]
 pub fn read_registers_16bit_address(
     i2c: &Arc<Mutex<I2cDriver>>,
     i2c_device: u8,
@@ -20,6 +21,7 @@ pub fn read_registers_16bit_address(
     println!("{:?}", register_values);
 }
 
+#[allow(unused)]
 pub struct I2CDevice {
     address: u8,
     start_reg: u16,
@@ -27,6 +29,7 @@ pub struct I2CDevice {
     reg_size: u8, // 1 = 8-bit reg address + 1-byte value; 2 = 16-bit reg address + 4-byte value
 }
 
+#[allow(unused)]
 pub fn pretty_register_dump(i2c: &Arc<Mutex<I2cDriver>>) {
     log::info!("\n--- Beginning Pretty Register Dump ---");
 

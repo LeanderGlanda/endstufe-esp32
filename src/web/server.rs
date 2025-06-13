@@ -2,22 +2,14 @@ use std::sync::Arc;
 
 use anyhow::Ok;
 use embedded_svc::http::{Headers, Method};
-use esp_idf_svc::hal::i2s;
-use esp_idf_svc::hal::{modem::Modem, prelude::Peripherals};
 use esp_idf_svc::{
-    eventloop::EspSystemEventLoop,
     http::server::EspHttpServer,
     io::{Read, Write},
-    nvs::EspDefaultNvsPartition,
-    sys::EspError,
-    wifi::{BlockingWifi, EspWifi},
 };
 use log::*;
-use serde::Deserialize;
 
 use crate::{api::commands::Command, hardware_context::HardwareContext};
 
-const INDEX_HTML: &str = include_str!("http_server_page.html");
 const MAX_LEN: usize = 128;
 const STACK_SIZE: usize = 10240;
 

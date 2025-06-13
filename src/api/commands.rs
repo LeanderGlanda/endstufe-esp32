@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::hardware_context::{self, HardwareContext};
+use crate::hardware_context::{HardwareContext};
 
 /// Kommando-Typen, alle über /api empfangenen Requests
 #[derive(Deserialize)]
@@ -14,6 +14,7 @@ pub enum Command {
 }
 
 /// Antwort-Typen, die wir serialisieren
+#[allow(unused)]
 #[derive(Serialize)]
 #[serde(tag = "resp", rename_all = "snake_case")]
 pub enum Response {

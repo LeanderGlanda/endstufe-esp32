@@ -1,6 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use esp_idf_svc::hal::i2c::I2cDriver;
 
 use crate::{
     drivers::{
@@ -9,7 +8,7 @@ use crate::{
         pcm1865::{self, PCM1865},
         tpa3116d2::TPA3116D2,
     },
-    hardware_context::{self, HardwareContext},
+    hardware_context::{HardwareContext},
 };
 
 pub fn hardware_init(hardware_context: Arc<HardwareContext<'_>>) -> anyhow::Result<()> {

@@ -1,37 +1,10 @@
-use std::collections::VecDeque;
-use std::net::UdpSocket;
-use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
-use std::{io, thread};
 
-use drivers::{adau1467, adau1962a, tpa3116d2};
-use embedded_svc::http::Headers;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::hal::gpio::Input;
-use esp_idf_svc::hal::gpio::Output;
-use esp_idf_svc::hal::gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, InputPin, PinDriver, Pull};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
-use esp_idf_svc::hal::i2s::config::ClockSource;
-use esp_idf_svc::hal::i2s::config::Config;
-use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
-use esp_idf_svc::hal::i2s::I2sDriver;
-use esp_idf_svc::hal::ledc::config::TimerConfig;
-use esp_idf_svc::hal::ledc::{LedcDriver, LedcTimer, LedcTimerDriver, LEDC};
-use esp_idf_svc::hal::modem::Modem;
-use esp_idf_svc::hal::pcnt::Pcnt;
-use esp_idf_svc::hal::peripheral::Peripheral;
 use esp_idf_svc::hal::prelude::Peripherals;
-use esp_idf_svc::hal::timer::Timer;
-use esp_idf_svc::hal::{pcnt, peripheral, prelude::*};
-use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
-use esp_idf_svc::http::Method;
-use esp_idf_svc::log::EspLogger;
-use esp_idf_svc::netif::EspNetif;
+use esp_idf_svc::hal::prelude::*;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
-use esp_idf_svc::sys::{TickType_t, MALLOC_CAP_INTERNAL};
-use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
-use rtp_rs::RtpReader;
 
 mod api;
 mod drivers;
@@ -44,13 +17,6 @@ mod linkwitz_riley_coeffs;
 mod sigmastudio;
 mod web;
 
-use crate::drivers::{
-    adau1467::ADAU1467,
-    adau1962a::ADAU1962A,
-    pcm1865::{self, PCM1865},
-    tpa3116d2::TPA3116D2,
-};
-use crate::encoder::Encoder;
 
 const HARDWARE_CONNECTED: bool = true;
 const ENABLE_WEB: bool = true;
@@ -79,12 +45,12 @@ fn main() -> anyhow::Result<()> {
 
     let hardware_context = Arc::new(hardware_context::HardwareContext::new(shared_i2c));
 
-    let handle;
+    let mut handle = None;
 
     if HARDWARE_CONNECTED {
         hardware_init::hardware_init(hardware_context.clone())?;
 
-        handle = std::thread::spawn(|| {
+        handle = Some(std::thread::spawn(|| {
             hardware_control::hardware_control(
                 peripherals.pins.gpio35.into(),
                 peripherals.pins.gpio36.into(),
@@ -97,7 +63,7 @@ fn main() -> anyhow::Result<()> {
                 peripherals.ledc.into(),
                 peripherals.pcnt0,
             )
-        });
+        }));
 
         log::info!("Hardware init complete");
     }
@@ -111,6 +77,11 @@ fn main() -> anyhow::Result<()> {
             std::thread::sleep(std::time::Duration::from_secs(60));
         }
     }
+
+    if handle.is_some() {
+        handle.unwrap().join().expect("Hardware control thread panicked")?;
+    }
+    
 
     Ok(())
 }

@@ -1,35 +1,9 @@
-use std::collections::VecDeque;
-use std::net::UdpSocket;
-use std::sync::mpsc::{self, Receiver, SyncSender};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
-use std::{io, thread};
-use embedded_svc::http::Headers;
-use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::hal::gpio::Input;
-use esp_idf_svc::hal::gpio::Output;
-use esp_idf_svc::hal::gpio::{AnyIOPin, AnyInputPin, AnyOutputPin, InputPin, PinDriver, Pull};
-use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
-use esp_idf_svc::hal::i2s::config::ClockSource;
-use esp_idf_svc::hal::i2s::config::Config;
-use esp_idf_svc::hal::i2s::config::{DataBitWidth, StdConfig};
-use esp_idf_svc::hal::i2s::I2sDriver;
+use std::time::Duration;
+use esp_idf_svc::hal::gpio::{AnyIOPin, AnyOutputPin, PinDriver, Pull};
 use esp_idf_svc::hal::ledc::config::TimerConfig;
-use esp_idf_svc::hal::ledc::{LedcDriver, LedcTimer, LedcTimerDriver, LEDC};
-use esp_idf_svc::hal::modem::Modem;
+use esp_idf_svc::hal::ledc::{LedcDriver, LedcTimerDriver, LEDC};
 use esp_idf_svc::hal::pcnt::Pcnt;
 use esp_idf_svc::hal::peripheral::Peripheral;
-use esp_idf_svc::hal::prelude::Peripherals;
-use esp_idf_svc::hal::timer::Timer;
-use esp_idf_svc::hal::{pcnt, peripheral, prelude::*};
-use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
-use esp_idf_svc::http::Method;
-use esp_idf_svc::log::EspLogger;
-use esp_idf_svc::netif::EspNetif;
-use esp_idf_svc::nvs::EspDefaultNvsPartition;
-use esp_idf_svc::sys::{TickType_t, MALLOC_CAP_INTERNAL};
-use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
-use rtp_rs::RtpReader;
 
 use crate::encoder::Encoder;
 
@@ -51,9 +25,9 @@ pub fn hardware_control(
     let mut button_bassboost = PinDriver::input(button_pin_2)?;
     let mut button_standby = PinDriver::input(button_pin_3)?;
 
-    button_mute.set_pull(Pull::Down);
-    button_bassboost.set_pull(Pull::Down);
-    button_standby.set_pull(Pull::Down);
+    button_mute.set_pull(Pull::Down)?;
+    button_bassboost.set_pull(Pull::Down)?;
+    button_standby.set_pull(Pull::Down)?;
 
     let timer = LedcTimerDriver::new(ledc.timer0, &TimerConfig::default())?;
 
@@ -83,8 +57,6 @@ pub fn hardware_control(
         }
         std::thread::sleep(Duration::from_millis(1000));
     }
-
-    Ok(())
 }
 
 fn set_rgb(

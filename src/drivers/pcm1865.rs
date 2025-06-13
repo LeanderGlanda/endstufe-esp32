@@ -15,6 +15,7 @@ impl<'a> PCM1865<'a> {
     }
 
     /// Sets the input source for a specified channel
+    #[allow(unused)]
     pub fn set_input_source(&self, channel: u8, source_id: u8) -> Result<()> {
         let register = match channel {
             1 => 0x3B,

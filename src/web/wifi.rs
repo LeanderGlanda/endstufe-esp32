@@ -2,7 +2,6 @@ use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     hal::modem::Modem,
     nvs::EspDefaultNvsPartition,
-    sys::{wifi_interface_t_WIFI_IF_STA, WIFI_PROTOCOL_11B, WIFI_PROTOCOL_11G, WIFI_PROTOCOL_11N},
     wifi::{BlockingWifi, EspWifi, PmfConfiguration, ScanMethod, ScanSortMethod},
 };
 
@@ -30,7 +29,7 @@ pub fn setup_wifi(
         },
     ))?;
 
-    for attempt in 0..3 {
+    for _attempt in 0..3 {
         if !wifi
             .is_connected()
             .map_err(|_| anyhow::anyhow!("Error checking WiFi status"))?

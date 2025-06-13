@@ -1,5 +1,4 @@
 use std::{
-    f64::consts::PI,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -7,9 +6,9 @@ use std::{
 use esp_idf_svc::hal::delay::BLOCK;
 use esp_idf_svc::hal::i2c::I2cDriver;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 
-use crate::{i2c_helper::pretty_register_dump, linkwitz_riley_coeffs::LinkwitzRileyCoeffs};
+use crate::linkwitz_riley_coeffs::LinkwitzRileyCoeffs;
 
 pub struct ADAU1467<'a> {
     i2c: Arc<Mutex<I2cDriver<'a>>>, // Use the lifetime parameter here
@@ -55,8 +54,8 @@ impl<'a> ADAU1467<'a> {
     }
 
     fn clear_panic(&self) -> Result<(), anyhow::Error> {
-        self.set_bits(0xF421, 0b1, 0b1);
-        self.set_bits(0xF421, 0b1, 0b0);
+        self.set_bits(0xF421, 0b1, 0b1)?;
+        self.set_bits(0xF421, 0b1, 0b0)?;
         Ok(())
     }
 
@@ -66,6 +65,7 @@ impl<'a> ADAU1467<'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn read_second_page_select_reg(&self) -> Result<(), anyhow::Error> {
         let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
 
@@ -126,6 +126,7 @@ impl<'a> ADAU1467<'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     fn float_to_fixed_8_24(value: f32) -> u32 {
         (value * (1 << 23) as f32) as u32
     }

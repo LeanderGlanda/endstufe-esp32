@@ -34,6 +34,7 @@ impl SecondOrderCoeffs {
 
 /// A struct that holds both low-pass and high-pass coefficients for a Linkwitz-Riley crossover.
 /// Each branch has two cascaded second–order sections.
+#[allow(unused)]
 #[derive(Debug)]
 pub struct LinkwitzRileyCoeffs {
     // Low-pass branch: Filter1 and Filter2 (for a 4th-order LR lowpass)
@@ -137,7 +138,7 @@ impl LinkwitzRileyCoeffs {
     /// (lowpass_filter1, lowpass_filter2, highpass_filter1, highpass_filter2).
     /// Each array is of length 5 and the order of coefficients is:
     /// [b0, b1, b2, a1, a2].
-    pub fn as_fixed(&self) -> ([u32; 5], [u32; 5], [u32; 5], [u32; 5]) {
+    pub fn _as_fixed(&self) -> ([u32; 5], [u32; 5], [u32; 5], [u32; 5]) {
         (
             self.lowpass_filter1.to_fixed(),
             self.lowpass_filter2.to_fixed(),

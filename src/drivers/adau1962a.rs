@@ -6,7 +6,7 @@ use std::{
 use esp_idf_svc::hal::delay::BLOCK;
 use esp_idf_svc::hal::i2c::I2cDriver;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 
 pub struct ADAU1962A<'a> {
     i2c: Arc<Mutex<I2cDriver<'a>>>, // Use the lifetime parameter here
