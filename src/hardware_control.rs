@@ -11,62 +11,100 @@ use crate::encoder::Encoder;
 use crate::hardware_context::HardwareContext;
 use crate::sticky_limiter::StickyLimiter;
 
-fn setup_button(
-    pin: AnyIOPin,
-    pull: Pull,
-    interrupt_type: InterruptType,
+const INITIAL_VOLUME_OFFSET: i32 = 66;
+const BUTTON_DEBOUNCE_DELAY_MS: u64 = 500;
+const MAIN_LOOP_DELAY_MS: u64 = 20;
+
+struct Button {
+    driver: Arc<Mutex<PinDriver<'static, AnyIOPin, Input>>>,
     pressed_flag: Arc<AtomicBool>,
-) -> anyhow::Result<Arc<Mutex<PinDriver<'static, AnyIOPin, Input>>>> {
-    let button = Arc::new(Mutex::new(PinDriver::input(pin)?));
-    button.lock().unwrap().set_pull(pull)?;
-
-    let pressed_flag_clone = Arc::clone(&pressed_flag);
-    unsafe {
-        button.lock().unwrap().subscribe(move || {
-            pressed_flag_clone.store(true, Ordering::SeqCst);
-        })?;
-    }
-
-    button.lock().unwrap().set_interrupt_type(interrupt_type)?;
-    button.lock().unwrap().enable_interrupt()?;
-
-    Ok(button)
 }
 
-fn setup_leds<'a>(
-    ledc: LEDC,
-    red_pin: AnyOutputPin,
-    green_pin: AnyOutputPin,
-    blue_pin: AnyOutputPin,
-) -> anyhow::Result<(
-    LedcDriver<'a>,
-    LedcDriver<'a>,
-    LedcDriver<'a>,
-)> {
-    let timer = LedcTimerDriver::new(ledc.timer0, &TimerConfig::default())?;
+impl Button {
+    fn new(
+        pin: AnyIOPin,
+        pull: Pull,
+        interrupt_type: InterruptType,
+        pressed_flag: Arc<AtomicBool>,
+    ) -> anyhow::Result<Self> {
+        let driver = Arc::new(Mutex::new(PinDriver::input(pin)?));
+        driver.lock().unwrap().set_pull(pull)?;
 
-    let red = LedcDriver::new(ledc.channel0, &timer, red_pin)?;
-    let green = LedcDriver::new(ledc.channel1, &timer, green_pin)?;
-    let blue = LedcDriver::new(ledc.channel2, &timer, blue_pin)?;
+        let pressed_flag_clone = Arc::clone(&pressed_flag);
+        unsafe {
+            driver.lock().unwrap().subscribe(move || {
+                pressed_flag_clone.store(true, Ordering::SeqCst);
+            })?;
+        }
 
-    Ok((red, green, blue))
+        driver.lock().unwrap().set_interrupt_type(interrupt_type)?;
+        driver.lock().unwrap().enable_interrupt()?;
+
+        Ok(Self {
+            driver,
+            pressed_flag,
+        })
+    }
+
+    fn handle_press<F>(&self, callback: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        if self.pressed_flag.load(Ordering::SeqCst) {
+            self.pressed_flag.store(false, Ordering::SeqCst);
+            callback();
+
+            let driver = Arc::clone(&self.driver);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(BUTTON_DEBOUNCE_DELAY_MS));
+                driver.lock().unwrap().enable_interrupt().ok();
+            });
+        }
+    }
+}
+
+struct LedController<'a> {
+    red: LedcDriver<'a>,
+    green: LedcDriver<'a>,
+    blue: LedcDriver<'a>,
+}
+
+impl<'a> LedController<'a> {
+    fn new(
+        ledc: LEDC,
+        red_pin: AnyOutputPin,
+        green_pin: AnyOutputPin,
+        blue_pin: AnyOutputPin,
+    ) -> anyhow::Result<Self> {
+        let timer = LedcTimerDriver::new(ledc.timer0, &TimerConfig::default())?;
+
+        let red = LedcDriver::new(ledc.channel0, &timer, red_pin)?;
+        let green = LedcDriver::new(ledc.channel1, &timer, green_pin)?;
+        let blue = LedcDriver::new(ledc.channel2, &timer, blue_pin)?;
+
+        Ok(Self { red, green, blue })
+    }
+
+    fn set_rgb(&mut self, r: u8, g: u8, b: u8) -> anyhow::Result<()> {
+        self.red.set_duty(self.red.get_max_duty() * r as u32 / 255)?;
+        self.green.set_duty(self.green.get_max_duty() * g as u32 / 255)?;
+        self.blue.set_duty(self.blue.get_max_duty() * b as u32 / 255)?;
+        Ok(())
+    }
 }
 
 fn main_loop(
     encoder: Encoder,
     hardware_context: Arc<HardwareContext<'static>>,
-    mute_pressed: Arc<AtomicBool>,
-    bassboost_pressed: Arc<AtomicBool>,
-    standby_pressed: Arc<AtomicBool>,
-    button_mute: Arc<Mutex<PinDriver<'static, AnyIOPin, Input>>>,
-    button_bassboost: Arc<Mutex<PinDriver<'static, AnyIOPin, Input>>>,
-    button_standby: Arc<Mutex<PinDriver<'static, AnyIOPin, Input>>>,
+    button_mute: Button,
+    button_bassboost: Button,
+    button_standby: Button,
 ) -> anyhow::Result<()> {
-    let mut last_value = 66i32;
+    let mut last_value = INITIAL_VOLUME_OFFSET;
     let mut volume = StickyLimiter::new(0, 100);
 
     loop {
-        let value = encoder.get_value()? + 66;
+        let value = encoder.get_value()? + INITIAL_VOLUME_OFFSET;
         if value != last_value {
             last_value = value;
             let volume = volume.update(value);
@@ -74,43 +112,23 @@ fn main_loop(
             hardware_context.adau1962a.lock().unwrap().set_master_volume(volume as u8)?;
         }
 
-        if mute_pressed.load(Ordering::SeqCst) {
+        let hardware_context = hardware_context.clone();
+        button_mute.handle_press(move || {
             log::info!("mute pressed");
-            mute_pressed.store(false, Ordering::SeqCst);
             let tpa3116d2 = hardware_context.tpa3116d2.lock().unwrap();
-            let speakers_muted = tpa3116d2.speakers_muted()?;
-            tpa3116d2.mute_speaker_outputs(!speakers_muted)?;
+            let speakers_muted = tpa3116d2.speakers_muted().unwrap();
+            tpa3116d2.mute_speaker_outputs(!speakers_muted).unwrap();
+        });
 
-            let button_mute = Arc::clone(&button_mute);
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(500));
-                button_mute.lock().unwrap().enable_interrupt().ok();
-            });
-        }
-
-        if bassboost_pressed.load(Ordering::SeqCst) {
+        button_bassboost.handle_press(|| {
             log::info!("bassboost pressed");
-            bassboost_pressed.store(false, Ordering::SeqCst);
+        });
 
-            let button_bassboost = Arc::clone(&button_bassboost);
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(500));
-                button_bassboost.lock().unwrap().enable_interrupt().ok();
-            });
-        }
-
-        if standby_pressed.load(Ordering::SeqCst) {
+        button_standby.handle_press(|| {
             log::info!("standby pressed");
-            standby_pressed.store(false, Ordering::SeqCst);
+        });
 
-            let button_standby = Arc::clone(&button_standby);
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(500));
-                button_standby.lock().unwrap().enable_interrupt().ok();
-            });
-        }
-
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(Duration::from_millis(MAIN_LOOP_DELAY_MS));
     }
 }
 
@@ -129,41 +147,35 @@ pub fn hardware_control(
 ) -> anyhow::Result<()> {
     log::info!("Hardware control thread started");
 
-    let mute_pressed = Arc::new(AtomicBool::new(false));
-    let bassboost_pressed = Arc::new(AtomicBool::new(false));
-    let standby_pressed = Arc::new(AtomicBool::new(false));
+    let button_mute = Button::new(
+        button_pin_1,
+        Pull::Down,
+        InterruptType::PosEdge,
+        Arc::new(AtomicBool::new(false)),
+    )?;
+    let button_bassboost = Button::new(
+        button_pin_2,
+        Pull::Down,
+        InterruptType::PosEdge,
+        Arc::new(AtomicBool::new(false)),
+    )?;
+    let button_standby = Button::new(
+        button_pin_3,
+        Pull::Down,
+        InterruptType::PosEdge,
+        Arc::new(AtomicBool::new(false)),
+    )?;
 
-    let button_mute = setup_button(button_pin_1, Pull::Down, InterruptType::PosEdge, Arc::clone(&mute_pressed))?;
-    let button_bassboost = setup_button(button_pin_2, Pull::Down, InterruptType::PosEdge, Arc::clone(&bassboost_pressed))?;
-    let button_standby = setup_button(button_pin_3, Pull::Down, InterruptType::PosEdge, Arc::clone(&standby_pressed))?;
-
-    let (mut red, mut green, mut blue) = setup_leds(ledc, led_pin_red, led_pin_green, led_pin_blue)?;
-    set_rgb(&mut red, &mut green, &mut blue, 150, 255, 200)?;
+    let mut led_controller = LedController::new(ledc, led_pin_red, led_pin_green, led_pin_blue)?;
+    led_controller.set_rgb(150, 255, 200)?;
 
     let encoder = Encoder::new(pcnt, encoder_pin_a, encoder_pin_b).unwrap();
 
     main_loop(
         encoder,
         hardware_context.clone(),
-        mute_pressed.clone(),
-        bassboost_pressed.clone(),
-        standby_pressed.clone(),
-        button_mute.clone(),
-        button_bassboost.clone(),
-        button_standby.clone(),
+        button_mute,
+        button_bassboost,
+        button_standby,
     )
-}
-
-fn set_rgb(
-    red: &mut LedcDriver<'_>,
-    green: &mut LedcDriver<'_>,
-    blue: &mut LedcDriver<'_>,
-    r: u8,
-    g: u8,
-    b: u8,
-) -> anyhow::Result<()> {
-    red.set_duty(red.get_max_duty() * r as u32 / 255)?;
-    green.set_duty(green.get_max_duty() * g as u32 / 255)?;
-    blue.set_duty(blue.get_max_duty() * b as u32 / 255)?;
-    Ok(())
 }
