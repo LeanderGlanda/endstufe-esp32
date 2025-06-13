@@ -16,6 +16,7 @@ mod i2c_helper;
 mod linkwitz_riley_coeffs;
 mod sigmastudio;
 mod web;
+mod sticky_limiter;
 
 
 const HARDWARE_CONNECTED: bool = true;
@@ -50,7 +51,9 @@ fn main() -> anyhow::Result<()> {
     if HARDWARE_CONNECTED {
         hardware_init::hardware_init(hardware_context.clone())?;
 
-        handle = Some(std::thread::spawn(|| {
+        let hardware_context_clone = hardware_context.clone();
+
+        handle = Some(std::thread::spawn(move || {
             hardware_control::hardware_control(
                 peripherals.pins.gpio35.into(),
                 peripherals.pins.gpio36.into(),
@@ -62,6 +65,7 @@ fn main() -> anyhow::Result<()> {
                 peripherals.pins.gpio42.into(),
                 peripherals.ledc.into(),
                 peripherals.pcnt0,
+                hardware_context_clone,
             )
         }));
 
