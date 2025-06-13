@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use esp_idf_svc::hal::gpio::{AnyIOPin, AnyOutputPin, PinDriver, Pull};
+use esp_idf_svc::hal::gpio::{AnyIOPin, AnyOutputPin, InterruptType, PinDriver, Pull};
 use esp_idf_svc::hal::ledc::config::TimerConfig;
 use esp_idf_svc::hal::ledc::{LedcDriver, LedcTimerDriver, LEDC};
 use esp_idf_svc::hal::pcnt::Pcnt;
@@ -25,13 +26,46 @@ pub fn hardware_control(
 ) -> anyhow::Result<()> {
     log::info!("Hardware control thread started");
 
-    let mut button_mute = PinDriver::input(button_pin_1)?;
-    let mut button_bassboost = PinDriver::input(button_pin_2)?;
-    let mut button_standby = PinDriver::input(button_pin_3)?;
+    let button_mute = Arc::new(Mutex::new(PinDriver::input(button_pin_1)?));
+    let button_bassboost = Arc::new(Mutex::new(PinDriver::input(button_pin_2)?));
+    let button_standby = Arc::new(Mutex::new(PinDriver::input(button_pin_3)?));
 
-    button_mute.set_pull(Pull::Down)?;
-    button_bassboost.set_pull(Pull::Down)?;
-    button_standby.set_pull(Pull::Down)?;
+    button_mute.lock().unwrap().set_pull(Pull::Down)?;
+    button_bassboost.lock().unwrap().set_pull(Pull::Down)?;
+    button_standby.lock().unwrap().set_pull(Pull::Down)?;
+
+    let mute_pressed = Arc::new(AtomicBool::new(false));
+    let bassboost_pressed = Arc::new(AtomicBool::new(false));
+    let standby_pressed = Arc::new(AtomicBool::new(false));
+
+    let mute_pressed_clone = Arc::clone(&mute_pressed);
+    unsafe {
+        button_mute.lock().unwrap().subscribe(move || {
+            mute_pressed_clone.store(true, Ordering::SeqCst);
+        })?;
+    }
+
+    let bassboost_pressed_clone = Arc::clone(&bassboost_pressed);
+    unsafe {
+        button_bassboost.lock().unwrap().subscribe(move || {
+            bassboost_pressed_clone.store(true, Ordering::SeqCst);
+        })?;
+    }
+
+    let standby_pressed_clone = Arc::clone(&standby_pressed);
+    unsafe {
+        button_standby.lock().unwrap().subscribe(move || {
+            standby_pressed_clone.store(true, Ordering::SeqCst);
+        })?;
+    }
+
+    button_mute.lock().unwrap().set_interrupt_type(InterruptType::PosEdge)?;
+    button_bassboost.lock().unwrap().set_interrupt_type(InterruptType::PosEdge)?;
+    button_standby.lock().unwrap().set_interrupt_type(InterruptType::PosEdge)?;
+
+    button_mute.lock().unwrap().enable_interrupt()?;
+    button_bassboost.lock().unwrap().enable_interrupt()?;
+    button_standby.lock().unwrap().enable_interrupt()?;
 
     let timer = LedcTimerDriver::new(ledc.timer0, &TimerConfig::default())?;
 
@@ -56,16 +90,41 @@ pub fn hardware_control(
 
             hardware_context.adau1962a.lock().unwrap().set_master_volume(volume as u8)?;
         }
-        if button_mute.is_high() {
-            log::info!("mute high");
+        if mute_pressed.load(Ordering::SeqCst) {
+            log::info!("mute pressed");
+            mute_pressed.store(false, Ordering::SeqCst);
+            let tpa3116d2 = hardware_context.tpa3116d2.lock().unwrap();
+            let speakers_muted = tpa3116d2.speakers_muted()?;
+            log::info!("speakers_muted: {}", speakers_muted);
+            tpa3116d2.mute_speaker_outputs(!speakers_muted)?;
+
+            let button_mute = Arc::clone(&button_mute);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(500));
+                button_mute.lock().unwrap().enable_interrupt().ok();
+            });
         }
-        if button_bassboost.is_high() {
-            log::info!("bassboost high");
+        if bassboost_pressed.load(Ordering::SeqCst) {
+            log::info!("bassboost pressed");
+            bassboost_pressed.store(false, Ordering::SeqCst);
+
+            let button_bassboost = Arc::clone(&button_bassboost);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(500));
+                button_bassboost.lock().unwrap().enable_interrupt().ok();
+            });
         }
-        if button_standby.is_high() {
-            log::info!("standby high");
+        if standby_pressed.load(Ordering::SeqCst) {
+            log::info!("standby pressed");
+            standby_pressed.store(false, Ordering::SeqCst);
+
+            let button_standby = Arc::clone(&button_standby);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(500));
+                button_standby.lock().unwrap().enable_interrupt().ok();
+            });
         }
-        std::thread::sleep(Duration::from_millis(1000));
+        std::thread::sleep(Duration::from_millis(20));
     }
 }
 
