@@ -30,4 +30,11 @@ impl<'a> TPA3116D2<'a> {
         std::thread::sleep(Duration::from_millis(1));
         Ok(())
     }
+
+    pub fn speakers_muted(&self) -> Result<bool, anyhow::Error> {
+        let mut i2c = self.i2c.lock().expect("Failed to lock I2C driver");
+        let mut buffer = [0; 1];
+        i2c.write_read(0x42, &[0x4], &mut buffer, BLOCK)?;
+        Ok(buffer[0] != 0)
+    }
 }
