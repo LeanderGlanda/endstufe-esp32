@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::collections::VecDeque;
 use std::net::UdpSocket;
 use std::sync::mpsc::{self, Receiver, SyncSender};
@@ -105,9 +103,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     if ENABLE_WEB {
-        let wifi = web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
+        let _wifi = web::wifi::setup_wifi(peripherals.modem, sys_loop, nvs)?;
 
-        let web_server = web::server::start_server(hardware_context)?;
+        let _web_server = web::server::start_server(hardware_context)?;
 
         loop {
             std::thread::sleep(std::time::Duration::from_secs(60));

@@ -24,7 +24,7 @@ pub enum Response {
 
 impl Command {
     /// Verarbeite das Kommando und gib eine Antwort zurück
-    pub fn handle(self, hardware_context: &Arc<HardwareContext<'_>>) -> Response {
+    pub fn handle(self, hardware_context: &Arc<HardwareContext<'_>>) -> anyhow::Result<Response> {
         match self {
             Command::SetVolume { level } if level <= 100 => {
                 log::info!("SetVolume called");
@@ -32,12 +32,12 @@ impl Command {
                     .adau1962a
                     .lock()
                     .expect("Could not lock ADAU1962a driver")
-                    .set_master_volume(level);
-                Response::Ok
+                    .set_master_volume(level)?;
+                Ok(Response::Ok)
             }
-            Command::SetVolume { level } => Response::Err {
+            Command::SetVolume { level } => Ok(Response::Err {
                 message: format!("Level {} out of range (0-100)", level),
-            },
+            }),
             Command::Mute => {
                 // mute();
                 log::info!("Mute called");
@@ -45,8 +45,8 @@ impl Command {
                     .tpa3116d2
                     .lock()
                     .expect("Could not lock TPA3116d2 driver")
-                    .mute_speaker_outputs(true);
-                Response::Ok
+                    .mute_speaker_outputs(true)?;
+                Ok(Response::Ok)
             }
             Command::Unmute => {
                 // unmute();
@@ -55,8 +55,8 @@ impl Command {
                     .tpa3116d2
                     .lock()
                     .expect("Could not lock TPA3116d2 driver")
-                    .mute_speaker_outputs(false);
-                Response::Ok
+                    .mute_speaker_outputs(false)?;
+                Ok(Response::Ok)
             }
         }
     }

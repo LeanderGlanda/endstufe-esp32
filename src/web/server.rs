@@ -66,14 +66,22 @@ pub fn mount_routes(
 
         // 2) JSON -> Command
         let cmd: Command = serde_json::from_slice(&buf).map_err(|e| anyhow::anyhow!(e))?;
-        // 3) Command verarbeiten
-        let resp = cmd.handle(&hardware_context_clone);
-        // 4) Response -> JSON
-        let body = serde_json::to_vec(&resp)?;
-        // 5) Antwort senden
-        let mut response = req.into_ok_response()?;
-        response.write(&body)?;
-        Ok(())
+
+        match cmd.handle(&hardware_context_clone) {
+            std::result::Result::Ok(resp) => {
+                // 4) Response -> JSON
+                let body = serde_json::to_vec(&resp)?;
+                // 5) Antwort senden
+                let mut response = req.into_ok_response()?;
+                response.write(&body)?;
+                Ok(())
+            }
+            Err(e) => {
+                let mut response = req.into_status_response(400)?;
+                response.write_all(format!("Error processing command: {}", e).as_bytes())?;
+                Ok(())
+            }
+        }
     })?;
 
     Ok(())
