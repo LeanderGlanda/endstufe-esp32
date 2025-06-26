@@ -4,6 +4,8 @@ use std::path::PathBuf;
 fn build_sigmastudio_code() {
     let target = env::var("TARGET").unwrap();
 
+    let target_is_xtensa = target.starts_with("xtensa-esp32");
+
     // Try to detect ESP-IDF toolchain via IDF_PATH or fallback
     let compiler = if let Ok(compiler) = env::var("CC") {
         compiler
@@ -11,7 +13,7 @@ fn build_sigmastudio_code() {
         // Try to guess toolchain path from IDF_PATH and target
         let toolchain = if target.starts_with("xtensa-esp32") {
             "xtensa-esp32-elf-gcc"
-        } else if target.starts_with("riscv32imc-esp-espidf") {
+        } else if target.starts_with("riscv32imac-esp-espidf") {
             "riscv32-esp-elf-gcc"
         } else {
             panic!("Unsupported target: {}", target);
@@ -33,7 +35,9 @@ fn build_sigmastudio_code() {
     build.compiler(compiler);
 
     build.flag("-Wno-unused-parameter");
-    build.flag("-mlongcalls");
+    if target_is_xtensa {
+        build.flag("-mlongcalls");
+    }
 
     // Kompiliere die C-Dateien
     build.compile("sigmastudio");

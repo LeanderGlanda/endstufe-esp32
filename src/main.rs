@@ -36,8 +36,8 @@ fn main() -> anyhow::Result<()> {
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
     let i2c = peripherals.i2c0;
-    let sda = peripherals.pins.gpio12;
-    let scl = peripherals.pins.gpio13;
+    let sda = peripherals.pins.gpio6;
+    let scl = peripherals.pins.gpio7;
 
     let config = I2cConfig::new().baudrate(100.kHz().into());
     let i2c = I2cDriver::new(i2c, sda, scl, &config)?;
@@ -46,14 +46,14 @@ fn main() -> anyhow::Result<()> {
 
     let hardware_context = Arc::new(hardware_context::HardwareContext::new(shared_i2c));
 
-    let mut handle = None;
+    let mut handle: Option<std::thread::JoinHandle<Result<(), anyhow::Error>>> = None;
 
     if HARDWARE_CONNECTED {
         hardware_init::hardware_init(hardware_context.clone())?;
 
         let hardware_context_clone = hardware_context.clone();
 
-        handle = Some(std::thread::spawn(move || {
+        /*handle = Some(std::thread::spawn(move || {
             hardware_control::hardware_control(
                 peripherals.pins.gpio35.into(),
                 peripherals.pins.gpio36.into(),
@@ -67,7 +67,7 @@ fn main() -> anyhow::Result<()> {
                 peripherals.pcnt0,
                 hardware_context_clone,
             )
-        }));
+        }));*/
 
         log::info!("Hardware init complete");
     }
