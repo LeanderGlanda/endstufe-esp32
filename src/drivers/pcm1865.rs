@@ -108,6 +108,32 @@ impl<'a> PCM1865<'a> {
         }
         self.set_bits(0x27, 0b01111111, (divider - 1).try_into().unwrap())
     }
+
+    /// Selects the input for ADC1 or ADC2, Left/Right channel (regs 0x06..0x09).
+    pub fn set_adc_input(
+        &self,
+        adc: AdcNumber,
+        channel: AdcChannel,
+        input: AdcInput,
+        inverted: bool,
+    ) -> Result<(), anyhow::Error> {
+        let base_register = match adc {
+            AdcNumber::Adc1 => 0x06,
+            AdcNumber::Adc2 => 0x08,
+        };
+
+        let register = match channel {
+            AdcChannel::Left => base_register,
+            AdcChannel::Right => base_register + 1,
+        };
+
+        // Build register value
+        let value = (if inverted { 1 << 7 } else { 0 })
+            | (1 << 6)              // RSV bit must always be 1
+            | (input as u8 & 0x3F); // lower 6 bits = selection
+
+        self.set_bits(register, 0xFF, value)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -126,4 +152,40 @@ impl SckXtalSelection {
             SckXtalSelection::Xtal => 0b10,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum AdcNumber {
+    Adc1,
+    Adc2,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum AdcChannel {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub enum AdcInput {
+    None = 0b000000,
+    Vin1 = 0b000001,
+    Vin2 = 0b000010,
+    Vin2PlusVin1 = 0b000011,
+    Vin3 = 0b000100,
+    Vin3PlusVin1 = 0b000101,
+    Vin3PlusVin2 = 0b000110,
+    Vin3PlusVin2PlusVin1 = 0b000111,
+    Vin4 = 0b001000,
+    Vin4PlusVin1 = 0b001001,
+    Vin4PlusVin2 = 0b001010,
+    Vin4PlusVin2PlusVin1 = 0b001011,
+    Vin4PlusVin3 = 0b001100,
+    Vin4PlusVin3PlusVin1 = 0b001101,
+    Vin4PlusVin3PlusVin2 = 0b001110,
+    Vin4PlusVin3PlusVin2PlusVin1 = 0b001111,
+    DiffVin1 = 0b010000,
+    DiffVin4 = 0b100000,
+    DiffVin1PlusDiffVin4 = 0b110000,
 }

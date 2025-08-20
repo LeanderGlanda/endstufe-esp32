@@ -5,10 +5,10 @@ use crate::{
     drivers::{
         adau1467::ADAU1467,
         adau1962a::{self, ADAU1962A},
-        pcm1865::{self, PCM1865},
+        pcm1865::{self, AdcChannel, AdcInput, AdcNumber, PCM1865},
         tpa3116d2::TPA3116D2,
     },
-    hardware_context::{HardwareContext},
+    hardware_context::HardwareContext,
 };
 
 pub fn hardware_init(hardware_context: Arc<HardwareContext<'_>>) -> anyhow::Result<()> {
@@ -48,6 +48,8 @@ fn setup_pcm1865(pcm1865: &mut PCM1865) -> Result<(), anyhow::Error> {
     pcm1865.master_clock_to_bit_clock_divider_value(2)?; // 12.228 Mhz BCLK
     pcm1865.bit_clock_to_left_right_clock_divider_value(64)?;
     pcm1865.auto_clock_detector_configuration(true)?;
+    pcm1865.set_adc_input(AdcNumber::Adc1, AdcChannel::Left, AdcInput::Vin4PlusVin3PlusVin2PlusVin1, false)?;
+    pcm1865.set_adc_input(AdcNumber::Adc1, AdcChannel::Right, AdcInput::Vin4PlusVin3PlusVin2PlusVin1, false)?;
     Ok(())
 }
 
