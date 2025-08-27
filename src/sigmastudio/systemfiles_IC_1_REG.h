@@ -1,7 +1,7 @@
 /*
- * File:           C:\Users\Leander\Documents\Hardware\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1_REG.h
+ * File:           D:\HardwareDev\Endstufe\SigmaStudio\TestDesign\Output\systemfiles_IC_1_REG.h
  *
- * Created:        Thursday, May 15, 2025 8:58:34 PM
+ * Created:        Wednesday, August 27, 2025 1:11:00 PM
  * Description:    TestDesigndspproj:IC 1 control register definitions.
  *
  * This software is distributed in the hope that it will be useful,
@@ -123,7 +123,7 @@
 /* ASRC_INPUT3  - Registers (IC 1) */
 #define REG_ASRC_INPUT3_IC_1_ADDR                 0xF103
 #define REG_ASRC_INPUT3_IC_1_BYTE                 2
-#define REG_ASRC_INPUT3_IC_1_VALUE                0x0
+#define REG_ASRC_INPUT3_IC_1_VALUE                0x3
 
 /* ASRC_INPUT4  - Registers (IC 1) */
 #define REG_ASRC_INPUT4_IC_1_ADDR                 0xF104
@@ -163,7 +163,7 @@
 /* ASRC_OUT_RATE3  - Registers (IC 1) */
 #define REG_ASRC_OUT_RATE3_IC_1_ADDR              0xF143
 #define REG_ASRC_OUT_RATE3_IC_1_BYTE              2
-#define REG_ASRC_OUT_RATE3_IC_1_VALUE             0x0
+#define REG_ASRC_OUT_RATE3_IC_1_VALUE             0x5
 
 /* ASRC_OUT_RATE4  - Registers (IC 1) */
 #define REG_ASRC_OUT_RATE4_IC_1_ADDR              0xF144
@@ -3236,7 +3236,7 @@
 #define R19_ASRC_INPUT2_ASRC_SIN_CHANNEL_IC_1_SHIFT 3
 
 /* ASRC_INPUT3 (IC 1) */
-#define R20_ASRC_INPUT3_ASRC_SOURCE_IC_1          0x0    /* 000b	[2:0] */
+#define R20_ASRC_INPUT3_ASRC_SOURCE_IC_1          0x3    /* 011b	[2:0] */
 #define R20_ASRC_INPUT3_ASRC_SIN_CHANNEL_IC_1     0x0    /* 00000b	[7:3] */
 #define R20_ASRC_INPUT3_ASRC_SOURCE_IC_1_MASK     0x7
 #define R20_ASRC_INPUT3_ASRC_SOURCE_IC_1_SHIFT    0
@@ -3291,7 +3291,7 @@
 #define R27_ASRC_OUT_RATE2_ASRC_RATE_IC_1_SHIFT   0
 
 /* ASRC_OUT_RATE3 (IC 1) */
-#define R28_ASRC_OUT_RATE3_ASRC_RATE_IC_1         0x0    /* 0000b	[3:0] */
+#define R28_ASRC_OUT_RATE3_ASRC_RATE_IC_1         0x5    /* 0101b	[3:0] */
 #define R28_ASRC_OUT_RATE3_ASRC_RATE_IC_1_MASK    0xF
 #define R28_ASRC_OUT_RATE3_ASRC_RATE_IC_1_SHIFT   0
 
